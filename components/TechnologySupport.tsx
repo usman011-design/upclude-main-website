@@ -6,16 +6,17 @@
 // Isolation_Mode.png, Group_522_1.png, Group_522.png
 
 const logos = [
-  { src: "./kotlin.png",        alt: "iOS"        },
+  { src: "./kotlin.png",        alt: "kotlin"        },
   { src: "./android.png",          alt: "Android"    },
   { src: "./react.png", alt: "React"      },
-  { src: "./next.png",        alt: "Kotlin"     },
-  { src: "./js.png",        alt: "Java"       },
+  { src: "./next.png",        alt: "next"     },
+  { src: "./js.png",        alt: "js"       },
   { src: "./java.png", alt: "Java"},
   { src: "./swift.png", alt: "Swift"      },
   { src: "./typescript.png",   alt: "typescript" },
   { src: "./iOS_Logo.png",      alt: "IOS" },
-  { src: "./node.png",        alt: "Node" },
+  { src: "./nodejs.png",        alt: "Node" },
+  { src: "./express.png",        alt: "express" },
 ];
 
 export default function TechnologySupport() {
@@ -54,7 +55,7 @@ export default function TechnologySupport() {
           {items.map((logo, idx) => (
             <div
               key={idx}
-              className="flex items-center justify-center mb-8 mx-10 md:mx-16 opacity-60 grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-300"
+              className="flex items-center justify-center mb-8 mx-10 md:mx-16  grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-300"
               style={{ height: 40 }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}

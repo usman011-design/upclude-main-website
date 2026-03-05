@@ -16,7 +16,7 @@ export default function Home() {
         {/* Logo — absolute over the hero section */}
         <header className="absolute top-0 left-0 w-full px-16 py-8 flex justify-start z-20">
           <Image
-            src="/logo.png"
+            src="/main-logo.png"
             alt="Company Logo"
             width={100}
             height={100}

@@ -57,12 +57,14 @@ const services: Service[] = [
   { title: 'Web Development', img: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Frame%20508-Pkv2dH3V6hSroPO19uGK1mWJREsEi5.png' },
 ];
 
-const CARD_SIZE = 220;
-const VISUAL_SCALE = 1.35;
+// ─── FIX: Card size — desktop chhota, mobile aur bhi chhota ───────────────
+const CARD_SIZE_DESKTOP = 195;
+const CARD_SIZE_MOBILE  = 155;
+const VISUAL_SCALE = 1.22;
 const SPEED = 3;
 
-const CardFace = ({ service }: { service: Service }) => (
-  <div style={{ position: 'relative', width: CARD_SIZE, height: CARD_SIZE }}>
+const CardFace = ({ service, cardSize }: { service: Service; cardSize: number }) => (
+  <div style={{ position: 'relative', width: cardSize, height: cardSize }}>
     <img
       src={service.img}
       alt={service.title}
@@ -70,13 +72,15 @@ const CardFace = ({ service }: { service: Service }) => (
     />
     <div style={{
       position: 'absolute', bottom: 0, left: 0, right: 0,
-      background: 'rgba(0,0,0,0.9)', padding: '14px 16px',
+      background: 'rgba(0,0,0,0.9)', padding: '10px 12px',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       borderBottomLeftRadius: 16, borderBottomRightRadius: 16,
     }}>
       <p style={{
         fontFamily: 'system-ui, -apple-system, sans-serif',
-        fontSize: 16, fontWeight: 700, color: '#fff',
+        // ─── Font size bhi proportionally chhota ───────────────────────
+        fontSize: cardSize < 170 ? 13 : 15,
+        fontWeight: 700, color: '#fff',
         margin: 0, textAlign: 'center', letterSpacing: '0.01em',
       }}>
         {service.title}
@@ -114,7 +118,9 @@ function ServiceCards() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // Responsive gap: 100px on small screens, scales up to 200px at 1440px+
+  // ─── Responsive card size ─────────────────────────────────────────────────
+  const CARD_SIZE = vw < 768 ? CARD_SIZE_MOBILE : CARD_SIZE_DESKTOP;
+
   const responsiveGap = Math.min(Math.max(Math.round((vw / 1440) * 200), 100), 200);
   const SPACING = CARD_SIZE + responsiveGap;
 
@@ -166,7 +172,7 @@ function ServiceCards() {
           }}
         >
           <AnimatedCard>
-            <CardFace service={services[svcIdx]} />
+            <CardFace service={services[svcIdx]} cardSize={CARD_SIZE} />
           </AnimatedCard>
         </div>
       ))}
@@ -196,18 +202,21 @@ export default function HeroWithServices() {
           flexShrink: 0,
         }}
       >
-        <h1 className="text-5xl md:text-7xl font-light tracking-wide mb-6 flex flex-wrap items-center justify-center gap-x-8 text-white leading-none">
-          <span>Innovate</span>
-          <span>Build</span>
-          <span className="flex items-center gap-x-8">
-            <Image
-              src="/logo2.png"
-              alt="UP Logo"
-              width={70}
-              height={50}
-              priority
-              className="object-contain inline-block"
-            />
+        <h1 className="text-5xl md:text-7xl font-light mb-6 text-white leading-none">
+          {/* Desktop: single row, no wrap, wide spacing */}
+          <span className="hidden md:flex items-center justify-center gap-x-10" style={{ letterSpacing: '0.04em', wordSpacing: '0.18em', whiteSpace: 'nowrap' }}>
+            <span>Innovate</span>
+            <span>Build</span>
+            <Image src="/logo2.png" alt="UP Logo" width={70} height={50} priority className="object-contain" />
+            <span>Scale Digitally</span>
+          </span>
+          {/* Mobile: 3 lines */}
+          <span className="flex md:hidden flex-col items-center gap-y-3">
+            <span className="flex items-center justify-center gap-x-4">
+              <span>Innovate</span>
+              <span>Build</span>
+            </span>
+            <Image src="/logo2.png" alt="UP Logo" width={52} height={38} priority className="object-contain" />
             <span>Scale Digitally</span>
           </span>
         </h1>
