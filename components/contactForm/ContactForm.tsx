@@ -192,7 +192,8 @@ function CustomDropdown({
       </button>
       {error && touched && <FieldError msg={error} />}
       {open && (
-        <div className="absolute top-full left-0 w-full mt-1 bg-[#1a0545] border border-white/20 rounded-xl z-50 max-h-60 overflow-y-auto shadow-2xl">
+        <div className="absolute bottom-full left-0 w-full mb-2 bg-[#1a0545] border border-white/20 rounded-xl shadow-2xl"
+          style={{ maxHeight: '280px', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'rgba(123,0,255,0.5) transparent', zIndex: 9999, position: 'absolute' }}>
           {options.map(opt => (
             <button
               key={opt} type="button"
@@ -242,7 +243,8 @@ function CountryPicker({
         <span className="text-white/40 text-xs ml-1">&#8964;</span>
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-[#1a0545] border border-white/20 rounded-xl z-50 w-64 shadow-2xl overflow-hidden">
+        <div className="absolute bottom-full left-0 mb-2 bg-[#1a0545] border border-white/20 rounded-xl w-64 shadow-2xl overflow-hidden"
+        style={{ zIndex: 9999, position: 'absolute' }}>
           <div className="px-3 pt-3 pb-2">
             <input
               type="text" placeholder="Search Country" value={search}
@@ -251,7 +253,8 @@ function CountryPicker({
               autoFocus
             />
           </div>
-          <div className="max-h-56 overflow-y-auto">
+          <div className="overflow-y-auto"
+                style={{ maxHeight: '240px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(123,0,255,0.5) transparent' }}>
             {filtered.map(c => (
               <button
                 key={c.name + c.code} type="button"
@@ -431,7 +434,7 @@ export const ContactForm: React.FC = () => {
         </div>
       )}
 
-      <form className="flex flex-col gap-10" onSubmit={handleSubmit} noValidate>
+      <form className="flex flex-col gap-10" onSubmit={handleSubmit} noValidate style={{ overflow: "visible" }}>
 
         {/* Row 1: Name + Email */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
