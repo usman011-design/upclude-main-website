@@ -61,7 +61,7 @@ const services: Service[] = [
 const CARD_SIZE_DESKTOP = 195;
 const CARD_SIZE_MOBILE  = 155;
 const VISUAL_SCALE = 1.22;
-const SPEED = 3;
+// Speed is now responsive — set inside ServiceCards
 
 const CardFace = ({ service, cardSize }: { service: Service; cardSize: number }) => (
   <div style={{ position: 'relative', width: cardSize, height: cardSize }}>
@@ -104,11 +104,14 @@ function ServiceCards() {
     return () => window.removeEventListener('resize', measure);
   }, []);
 
+  const speedRef = useRef(3);
+  useEffect(() => { speedRef.current = vw < 768 ? 5 : 3; }, [vw]);
+
   useEffect(() => {
     const tick = (ts: number) => {
       if (lastRef.current !== null) {
         const dt = (ts - lastRef.current) / 1000;
-        phaseRef.current = (phaseRef.current + SPEED * dt) % 180;
+        phaseRef.current = (phaseRef.current + speedRef.current * dt) % 180;
         setPhase(phaseRef.current);
       }
       lastRef.current = ts;
@@ -118,10 +121,12 @@ function ServiceCards() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // ─── Responsive card size ─────────────────────────────────────────────────
+  // ─── Responsive card size, speed & gap ──────────────────────────────────────
   const CARD_SIZE = vw < 768 ? CARD_SIZE_MOBILE : CARD_SIZE_DESKTOP;
+  const SPEED     = vw < 768 ? 5 : 3;     // mobile pe faster
+  const mobileGapMin = 60;                 // mobile pe tighter gap
 
-  const responsiveGap = Math.min(Math.max(Math.round((vw / 1440) * 200), 100), 200);
+  const responsiveGap = Math.min(Math.max(Math.round((vw / 1440) * 200), vw < 768 ? mobileGapMin : 100), 200);
   const SPACING = CARD_SIZE + responsiveGap;
 
   const RX = vw / 2.5 + CARD_SIZE * 0.5;
@@ -222,20 +227,30 @@ export default function HeroWithServices() {
         </h1>
 
         <p className="text-lg md:text-2xl font-light text-white/90 max-w-3xl mx-auto leading-relaxed">
+          {/* Line 1 */}
           <span className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2">
             <span>Specialists in</span>
-            <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">Mobile</span>
-            <span>apps,</span>
-            <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">UI/UX</span>
-            <span>,</span>
+            <span className="inline-flex items-center">
+              <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">Mobile</span>
+              <span className="ml-0.5">apps,</span>
+            </span>
+            <span className="inline-flex items-center">
+              <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">UI/UX</span>
+              <span className="ml-0.5">,</span>
+            </span>
           </span>
+          {/* Line 2 */}
           <span className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2 mt-2">
-            <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">Web</span>
-            <span>platforms,</span>
+            <span className="inline-flex items-center">
+              <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">Web</span>
+              <span className="ml-0.5">platforms,</span>
+            </span>
             <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">AI</span>
-            <span>&</span>
-            <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">Backend</span>
-            <span>systems.</span>
+            <span>&amp;</span>
+            <span className="inline-flex items-center">
+              <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">Backend</span>
+              <span className="ml-0.5">systems.</span>
+            </span>
           </span>
         </p>
       </div>

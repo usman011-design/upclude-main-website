@@ -44,6 +44,10 @@ function ScrollProgressBar({ active }: { active: boolean }) {
           50%     { opacity: 0; }
           95%     { opacity: 0; }
         }
+        @keyframes activePulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(191,127,255,0.4); }
+          50%      { box-shadow: 0 0 0 4px rgba(191,127,255,0); }
+        }
       `}</style>
     </div>
   );
@@ -60,7 +64,9 @@ function ScrollToast({ state, label }: { state: ToastState; label: string }) {
       position: 'fixed', bottom: 36, left: '50%', zIndex: 9999,
       pointerEvents: 'none',
       opacity: visible ? 1 : 0,
-      transform: visible ? 'translateX(-50%) translateY(0) scale(1)' : 'translateX(-50%) translateY(18px) scale(0.94)',
+      transform: visible
+        ? 'translateX(-50%) translateY(0) scale(1)'
+        : 'translateX(-50%) translateY(18px) scale(0.94)',
       transition: 'opacity 0.32s ease, transform 0.32s ease',
       animation: arrived ? 'arrived 0.4s ease' : (visible ? 'fadeSlideUp 0.32s ease' : 'none'),
     }}>
@@ -72,7 +78,9 @@ function ScrollToast({ state, label }: { state: ToastState; label: string }) {
           ? 'linear-gradient(135deg, rgba(0,200,100,0.18), rgba(0,200,100,0.08))'
           : 'rgba(8,8,8,0.88)',
         backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
-        border: arrived ? '1px solid rgba(0,220,110,0.35)' : '1px solid rgba(255,255,255,0.1)',
+        border: arrived
+          ? '1px solid rgba(0,220,110,0.35)'
+          : '1px solid rgba(255,255,255,0.1)',
         boxShadow: arrived
           ? '0 6px 28px rgba(0,200,100,0.18)'
           : '0 8px 32px rgba(0,0,0,0.38), 0 0 0 1px rgba(123,0,255,0.12)',
@@ -111,10 +119,12 @@ function ScrollToast({ state, label }: { state: ToastState; label: string }) {
 }
 
 export default function Navbar() {
-  const [toastState, setToastState] = useState<ToastState>('hidden');
-  const [toastLabel, setToastLabel] = useState('');
+  const [toastState, setToastState]     = useState<ToastState>('hidden');
+  const [toastLabel, setToastLabel]     = useState('');
   const [progressActive, setProgressActive] = useState(false);
+  const [activeId, setActiveId]         = useState<string>('');  // ← scroll spy
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isScrollingRef = useRef(false); // prevent spy during programmatic scroll
 
   const links = [
     { name: 'Achievements', id: 'achievements' },
@@ -122,8 +132,49 @@ export default function Navbar() {
     { name: 'Contact',      id: 'contact'      },
   ];
 
-  // ─── Background is always dark (from-[#4F1079] via-[#1C0860] to-[#000000])
-  // So navbar colors are always white — no luminance detection needed
+  // ─── Scroll Spy — IntersectionObserver ───────────────────────────────────
+  useEffect(() => {
+    const ids = links.map(l => l.id);
+
+    const observers: IntersectionObserver[] = [];
+
+    // Track which sections are visible and how much
+    const visibilityMap: Record<string, number> = {};
+
+    const pickActive = () => {
+      if (isScrollingRef.current) return;
+      // Pick section with highest intersection ratio
+      let best = '';
+      let bestRatio = 0;
+      for (const id of ids) {
+        if ((visibilityMap[id] ?? 0) > bestRatio) {
+          bestRatio = visibilityMap[id];
+          best = id;
+        }
+      }
+      setActiveId(best);
+    };
+
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const obs = new IntersectionObserver(
+        ([entry]) => {
+          visibilityMap[id] = entry.intersectionRatio;
+          pickActive();
+        },
+        { threshold: [0, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0], rootMargin: '-80px 0px -20% 0px' }
+      );
+
+      obs.observe(el);
+      observers.push(obs);
+    });
+
+    return () => observers.forEach(o => o.disconnect());
+  }, []);
+
+  // ─── Colors ───────────────────────────────────────────────────────────────
   const textColor    = '#ffffff';
   const dividerColor = 'rgba(255,255,255,0.2)';
   const borderColor  = 'rgba(255,255,255,0.45)';
@@ -145,17 +196,24 @@ export default function Navbar() {
     requestAnimationFrame(step);
   };
 
-  // ─── Trigger full scroll experience ──────────────────────────────────────
-  const triggerScroll = (label: string, scrollFn: () => void) => {
+  // ─── Trigger scroll + toast ───────────────────────────────────────────────
+  const triggerScroll = (label: string, id: string, scrollFn: () => void) => {
     if (timerRef.current) clearTimeout(timerRef.current);
+
+    isScrollingRef.current = true;
+    setActiveId(id); // immediately highlight clicked link
+
     setToastLabel(label);
     setToastState('going');
     setProgressActive(true);
     setTimeout(scrollFn, 280);
+
     timerRef.current = setTimeout(() => {
       setProgressActive(false);
       setToastState('arrived');
       setToastLabel(label);
+      isScrollingRef.current = false; // re-enable spy
+
       timerRef.current = setTimeout(() => {
         setToastState('hidden');
       }, 1200);
@@ -173,7 +231,7 @@ export default function Navbar() {
     const nav = document.querySelector('[data-navbar]') as HTMLElement;
     const navH = nav ? nav.getBoundingClientRect().height : 80;
     const targetY = target.getBoundingClientRect().top + window.scrollY - navH - 24;
-    triggerScroll(name, () => smoothScrollTo(targetY, 900));
+    triggerScroll(name, id, () => smoothScrollTo(targetY, 900));
   };
 
   return (
@@ -194,11 +252,25 @@ export default function Navbar() {
           boxShadow: `0 4px 40px rgba(0,0,0,0.15), inset 0 0 0 3px ${borderColor}`,
           transition: 'background 0.3s, box-shadow 0.3s',
         }}>
+
           {/* Home */}
           <a
             href="#"
-            onClick={(e) => { e.preventDefault(); triggerScroll('Home', () => smoothScrollTo(0, 900)); }}
-            style={{ background: '#7B00FF', borderRadius: '50%', width: 46, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 28 }}
+            onClick={(e) => {
+              e.preventDefault();
+              isScrollingRef.current = true;
+              setActiveId('');
+              triggerScroll('Home', '', () => smoothScrollTo(0, 900));
+            }}
+            style={{
+              background: '#7B00FF', borderRadius: '50%',
+              width: 46, height: 46,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginRight: 28,
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 0 16px rgba(123,0,255,0.6)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}
           >
             <Home size={18} color="#fff" strokeWidth={2} />
           </a>
@@ -207,23 +279,62 @@ export default function Navbar() {
           <div style={{ width: 1, height: 24, background: dividerColor, marginRight: 28, transition: 'background 0.3s' }} />
 
           {/* Links */}
-          {links.map((link, i) => (
-            <a
-              key={link.id}
-              href={`#${link.id}`}
-              onClick={(e) => handleNavClick(e, link.id, link.name)}
-              style={{
-                textDecoration: 'none', color: textColor,
-                fontSize: 15, fontWeight: 600, letterSpacing: '0.02em',
-                marginLeft: i === 0 ? 0 : 40,
-                transition: 'opacity 0.2s, color 0.3s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = '0.6')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-            >
-              {link.name}
-            </a>
-          ))}
+          {links.map((link, i) => {
+            const isActive = activeId === link.id;
+            return (
+              <a
+                key={link.id}
+                href={`#${link.id}`}
+                onClick={(e) => handleNavClick(e, link.id, link.name)}
+                style={{
+                  textDecoration: 'none',
+                  color: textColor,
+                  fontSize: 15,
+                  fontWeight: isActive ? 700 : 600,
+                  letterSpacing: '0.02em',
+                  marginLeft: i === 0 ? 0 : 40,
+                  position: 'relative',
+                  paddingBottom: 2,
+                  transition: 'opacity 0.2s, color 0.3s, font-weight 0.2s',
+                  opacity: isActive ? 1 : 0.75,
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = isActive ? '1' : '0.75')}
+              >
+                {link.name}
+
+                {/* Active underline pill */}
+                <span style={{
+                  position: 'absolute',
+                  bottom: -4,
+                  left: '50%',
+                  transform: isActive ? 'translateX(-50%) scaleX(1)' : 'translateX(-50%) scaleX(0)',
+                  width: '100%',
+                  height: 2,
+                  borderRadius: 999,
+                  background: 'linear-gradient(90deg, #bf7fff, #7B00FF)',
+                  transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+                  boxShadow: isActive ? '0 0 6px rgba(191,127,255,0.8)' : 'none',
+                  display: 'block',
+                }} />
+
+                {/* Active dot above */}
+                <span style={{
+                  position: 'absolute',
+                  top: -8,
+                  left: '50%',
+                  transform: `translateX(-50%) scale(${isActive ? 1 : 0})`,
+                  width: 4, height: 4,
+                  borderRadius: '50%',
+                  background: '#bf7fff',
+                  boxShadow: '0 0 6px #bf7fff',
+                  transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+                  display: 'block',
+                  animation: isActive ? 'activePulse 2s ease infinite' : 'none',
+                }} />
+              </a>
+            );
+          })}
         </div>
       </nav>
     </>
