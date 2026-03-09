@@ -56,8 +56,25 @@ const projects: Project[] = [
 ];
 
 const ACCENT = '#00ff88';
-const CARD_W = 420;
 const N = projects.length;
+
+// Responsive card width
+function useCardW() {
+  const [cardW, setCardW] = useState(420);
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      if (w < 400) setCardW(w - 32);       // full width minus small margin
+      else if (w < 640) setCardW(320);
+      else if (w < 1024) setCardW(360);
+      else setCardW(420);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return cardW;
+}
 
 // Spring physics
 function createSpring(stiffness = 280, damping = 28, mass = 1) {
@@ -103,10 +120,10 @@ function getCardStyle(slotAngle: number): React.CSSProperties {
   };
 }
 
-function FullCard({ project, isCenter }: { project: Project; isCenter: boolean }) {
+function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: boolean; cardW: number }) {
   return (
     <div style={{
-      width: CARD_W,
+      width: cardW,
       background: '#0c0c0c',
       borderRadius: 28,
       overflow: 'hidden',
@@ -176,6 +193,7 @@ function FullCard({ project, isCenter }: { project: Project; isCenter: boolean }
 }
 
 export default function ProductShowcase() {
+  const cardW = useCardW();
   const rotationRef = useRef(0);
   const springRef = useRef(createSpring(260, 26, 1));
   const rafRef = useRef(0);
@@ -276,19 +294,27 @@ export default function ProductShowcase() {
   const touchStartYRef = useRef(0);
   const isTouchDraggingRef = useRef(false);
 
-  // Non-passive touch listener — needed for preventDefault to work on mobile
+  // Non-passive touch listener for horizontal drag prevention
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
 
     const handleTouchMove = (e: TouchEvent) => {
+      if (!e.touches.length) return;
       const dx = e.touches[0].clientX - touchStartXRef.current;
       const dy = e.touches[0].clientY - touchStartYRef.current;
+
       if (isTouchDraggingRef.current) {
-        e.preventDefault(); // prevent page scroll during horizontal drag
-      } else if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
-        isTouchDraggingRef.current = true;
         e.preventDefault();
+        return;
+      }
+      // Determine direction on first significant movement
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          isTouchDraggingRef.current = true;
+          e.preventDefault();
+        }
+        // vertical — let it scroll naturally, don't set dragging
       }
     };
 
@@ -307,26 +333,16 @@ export default function ProductShowcase() {
   }, []);
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
-    const dx = e.touches[0].clientX - touchStartXRef.current;
-    const dy = e.touches[0].clientY - touchStartYRef.current;
-
-    // If vertical swipe dominant — let page scroll, don't drag carousel
-    if (!isTouchDraggingRef.current && Math.abs(dy) > Math.abs(dx)) return;
-
-    // Horizontal drag — take over
-    if (Math.abs(dx) > 8) {
-      isTouchDraggingRef.current = true;
-    }
     if (!isTouchDraggingRef.current) return;
 
     const now = Date.now();
-    const dt = now - lastTimeRef.current;
     const ddx = e.touches[0].clientX - lastXRef.current;
+    const dt = now - lastTimeRef.current;
     if (dt > 0) velocityRef.current = ddx / dt;
     lastXRef.current = e.touches[0].clientX;
     lastTimeRef.current = now;
 
-    const PX_PER_SLOT = 340;
+    const PX_PER_SLOT = 280;
     const delta = (e.touches[0].clientX - touchStartXRef.current) / PX_PER_SLOT;
     rotationRef.current = startRotRef.current - delta;
     setRenderRotation(rotationRef.current);
@@ -391,7 +407,7 @@ export default function ProductShowcase() {
         ref={stageRef}
         style={{
           position: 'relative',
-          height: CARD_W + 320,
+          height: cardW + 320,
           perspective: '1100px',
           perspectiveOrigin: '50% 30%',
           display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
@@ -423,7 +439,7 @@ export default function ProductShowcase() {
                 position: 'absolute',
                 top: 0,
                 left: '50%',
-                marginLeft: -CARD_W / 2,
+                marginLeft: -cardW / 2,
                 transformStyle: 'preserve-3d',
                 willChange: 'transform',
                 transition: 'none',
@@ -438,7 +454,7 @@ export default function ProductShowcase() {
                   pointerEvents: 'none',
                 }} />
               )}
-              <FullCard project={projects[cardIndex]} isCenter={isCenter} />
+              <FullCard project={projects[cardIndex]} isCenter={isCenter} cardW={cardW} />
             </div>
           );
         })}
