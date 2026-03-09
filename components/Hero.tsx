@@ -64,17 +64,16 @@ const VISUAL_SCALE = 1.22;
 // Speed is now responsive — set inside ServiceCards
 
 const CardFace = ({ service, cardSize }: { service: Service; cardSize: number }) => (
-  <div style={{ position: 'relative', width: cardSize, height: cardSize }}>
+  <div style={{ position: 'relative', width: cardSize, height: cardSize, borderRadius: 8, overflow: 'hidden' }}>
     <img
       src={service.img}
       alt={service.title}
-      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 16 }}
+      style={{  objectFit: 'cover' }}
     />
     <div style={{
       position: 'absolute', bottom: 0, left: 0, right: 0,
       background: 'rgba(0,0,0,0.9)', padding: '10px 12px',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      borderBottomLeftRadius: 16, borderBottomRightRadius: 16,
     }}>
       <p style={{
         fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -212,44 +211,51 @@ export default function HeroWithServices() {
           <span className="hidden md:flex items-center justify-center gap-x-10" style={{ letterSpacing: '0.04em', wordSpacing: '0.18em', whiteSpace: 'nowrap' }}>
             <span>Innovate</span>
             <span>Build</span>
-            <Image src="/logo2.png" alt="UP Logo" width={70} height={50} priority className="object-contain" />
+            <Image
+            src="/logo2.png"
+            alt="UP Logo"
+            width={110}
+            height={80}
+            priority
+            className="object-contain scale-110 lg:scale-125"
+            />
             <span>Scale Digitally</span>
           </span>
           {/* Mobile: 3 lines */}
-          <span className="flex md:hidden flex-col items-center gap-y-3">
-            <span className="flex items-center justify-center gap-x-4">
+          <span className="flex md:hidden flex-col items-center gap-y-2">
+            <span className="flex items-center justify-center gap-x-3 text-[2.6rem]">
               <span>Innovate</span>
               <span>Build</span>
             </span>
             <Image src="/logo2.png" alt="UP Logo" width={52} height={38} priority className="object-contain" />
-            <span>Scale Digitally</span>
+            <span className="text-[2.6rem]">Scale Digitally</span>
           </span>
         </h1>
 
         <p className="text-lg md:text-2xl font-light text-white/90 max-w-3xl mx-auto leading-relaxed">
-          {/* Line 1 */}
-          <span className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2">
-            <span>Specialists in</span>
+          {/* Line 1 — forced single line, smaller pills on mobile */}
+          <span className="flex items-center justify-center gap-x-1.5 md:gap-x-2 whitespace-nowrap">
+            <span className="text-sm md:text-2xl">Specialists in</span>
             <span className="inline-flex items-center">
-              <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">Mobile</span>
-              <span className="ml-0.5">apps,</span>
+              <span className="bg-white text-black px-3 md:px-5 py-1 rounded-full font-normal text-sm md:text-xl">Mobile</span>
+              <span className="ml-0.5 text-sm md:text-2xl">apps,</span>
             </span>
             <span className="inline-flex items-center">
-              <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">UI/UX</span>
-              <span className="ml-0.5">,</span>
+              <span className="bg-white text-black px-3 md:px-5 py-1 rounded-full font-normal text-sm md:text-xl">UI/UX</span>
+              <span className="ml-0.5 text-sm md:text-2xl">,</span>
             </span>
           </span>
           {/* Line 2 */}
-          <span className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2 mt-2">
+          <span className="flex flex-wrap items-center justify-center gap-x-1.5 md:gap-x-2 gap-y-2 mt-2">
             <span className="inline-flex items-center">
-              <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">Web</span>
-              <span className="ml-0.5">platforms,</span>
+              <span className="bg-white text-black px-3 md:px-5 py-1 rounded-full font-normal text-sm md:text-xl">Web</span>
+              <span className="ml-0.5 text-sm md:text-2xl">platforms,</span>
             </span>
-            <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">AI</span>
-            <span>&amp;</span>
+            <span className="bg-white text-black px-3 md:px-5 py-1 rounded-full font-normal text-sm md:text-xl">AI</span>
+            <span className="text-sm md:text-2xl">&amp;</span>
             <span className="inline-flex items-center">
-              <span className="bg-white text-black px-5 py-1 rounded-full font-normal text-base md:text-xl">Backend</span>
-              <span className="ml-0.5">systems.</span>
+              <span className="bg-white text-black px-3 md:px-5 py-1 rounded-full font-normal text-sm md:text-xl">Backend</span>
+              <span className="ml-0.5 text-sm md:text-2xl">systems.</span>
             </span>
           </span>
         </p>

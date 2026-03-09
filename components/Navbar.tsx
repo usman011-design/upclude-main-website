@@ -122,7 +122,7 @@ export default function Navbar() {
   const [toastState, setToastState]     = useState<ToastState>('hidden');
   const [toastLabel, setToastLabel]     = useState('');
   const [progressActive, setProgressActive] = useState(false);
-  const [activeId, setActiveId]         = useState<string>('');  // ← scroll spy
+  const [activeId, setActiveId]         = useState<string>('home');  // ← default: home
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isScrollingRef = useRef(false); // prevent spy during programmatic scroll
 
@@ -131,6 +131,30 @@ export default function Navbar() {
     { name: 'Portfolio',    id: 'portfolio'    },
     { name: 'Contact',      id: 'contact'      },
   ];
+
+  // ─── Home active when near top ──────────────────────────────────────────────
+useEffect(() => {
+
+  const updateHomeState = () => {
+    if (isScrollingRef.current) return;
+
+    if (window.scrollY < 100) {
+      setActiveId('home');
+    }
+  };
+
+  // run once on page load
+  updateHomeState();
+
+  window.addEventListener('scroll', updateHomeState, { passive: true });
+
+  return () => window.removeEventListener('scroll', updateHomeState);
+
+}, []);
+
+useEffect(() => {
+  window.scrollTo(0, 0);
+}, []);
 
   // ─── Scroll Spy — IntersectionObserver ───────────────────────────────────
   useEffect(() => {
@@ -142,18 +166,24 @@ export default function Navbar() {
     const visibilityMap: Record<string, number> = {};
 
     const pickActive = () => {
-      if (isScrollingRef.current) return;
-      // Pick section with highest intersection ratio
-      let best = '';
-      let bestRatio = 0;
-      for (const id of ids) {
-        if ((visibilityMap[id] ?? 0) > bestRatio) {
-          bestRatio = visibilityMap[id];
-          best = id;
-        }
-      }
-      setActiveId(best);
-    };
+  if (isScrollingRef.current) return;
+
+  let best = '';
+  let bestRatio = 0;
+
+  for (const id of ids) {
+    if ((visibilityMap[id] ?? 0) > bestRatio) {
+      bestRatio = visibilityMap[id];
+      best = id;
+    }
+  }
+
+  if (best) {
+    setActiveId(best);
+  } else if (window.scrollY < 100) {
+    setActiveId('home');
+  }
+};
 
     ids.forEach(id => {
       const el = document.getElementById(id);
@@ -259,18 +289,20 @@ export default function Navbar() {
             onClick={(e) => {
               e.preventDefault();
               isScrollingRef.current = true;
-              setActiveId('');
-              triggerScroll('Home', '', () => smoothScrollTo(0, 900));
+              setActiveId('home');
+              triggerScroll('Home', 'home', () => smoothScrollTo(0, 900));
             }}
             style={{
-              background: '#7B00FF', borderRadius: '50%',
+              background: activeId === 'home' ? '#9333ea' : '#7B00FF',
+              borderRadius: '50%',
               width: 46, height: 46,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               marginRight: 28,
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease, background 0.3s ease',
+              boxShadow: activeId === 'home' ? '0 0 16px rgba(123,0,255,0.7)' : 'none',
             }}
             onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 0 16px rgba(123,0,255,0.6)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = activeId === 'home' ? '0 0 16px rgba(123,0,255,0.7)' : 'none'; }}
           >
             <Home size={18} color="#fff" strokeWidth={2} />
           </a>
@@ -288,15 +320,15 @@ export default function Navbar() {
                 onClick={(e) => handleNavClick(e, link.id, link.name)}
                 style={{
                   textDecoration: 'none',
-                  color: textColor,
+                  color: isActive ? '#e0b4ff' : textColor,
                   fontSize: 15,
-                  fontWeight: isActive ? 700 : 600,
+                  fontWeight: isActive ? 800 : 600,
                   letterSpacing: '0.02em',
                   marginLeft: i === 0 ? 0 : 40,
                   position: 'relative',
                   paddingBottom: 2,
                   transition: 'opacity 0.2s, color 0.3s, font-weight 0.2s',
-                  opacity: isActive ? 1 : 0.75,
+                  opacity: isActive ? 1 : 0.6,
                 }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
                 onMouseLeave={e => (e.currentTarget.style.opacity = isActive ? '1' : '0.75')}
@@ -310,11 +342,11 @@ export default function Navbar() {
                   left: '50%',
                   transform: isActive ? 'translateX(-50%) scaleX(1)' : 'translateX(-50%) scaleX(0)',
                   width: '100%',
-                  height: 2,
+                  height: 3,
                   borderRadius: 999,
                   background: 'linear-gradient(90deg, #bf7fff, #7B00FF)',
                   transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-                  boxShadow: isActive ? '0 0 6px rgba(191,127,255,0.8)' : 'none',
+                  boxShadow: isActive ? '0 0 10px rgba(191,127,255,1), 0 0 20px rgba(123,0,255,0.6)' : 'none',
                   display: 'block',
                 }} />
 
@@ -324,10 +356,10 @@ export default function Navbar() {
                   top: -8,
                   left: '50%',
                   transform: `translateX(-50%) scale(${isActive ? 1 : 0})`,
-                  width: 4, height: 4,
+                  width: 6, height: 6,
                   borderRadius: '50%',
                   background: '#bf7fff',
-                  boxShadow: '0 0 6px #bf7fff',
+                  boxShadow: '0 0 8px #bf7fff, 0 0 16px rgba(191,127,255,0.6)',
                   transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
                   display: 'block',
                   animation: isActive ? 'activePulse 2s ease infinite' : 'none',

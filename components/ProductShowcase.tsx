@@ -56,25 +56,8 @@ const projects: Project[] = [
 ];
 
 const ACCENT = '#00ff88';
+const CARD_W = 420;
 const N = projects.length;
-
-// Responsive card width hook
-function useCardWidth() {
-  const [cardW, setCardW] = useState(500);
-  useEffect(() => {
-    function update() {
-      const w = window.innerWidth;
-      if (w < 480) setCardW(w - 48);        // mobile: almost full width
-      else if (w < 768) setCardW(340);       // tablet small
-      else if (w < 1024) setCardW(400);      // tablet large
-      else setCardW(500);                    // desktop
-    }
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
-  return cardW;
-}
 
 // Spring physics
 function createSpring(stiffness = 280, damping = 28, mass = 1) {
@@ -99,20 +82,15 @@ function createSpring(stiffness = 280, damping = 28, mass = 1) {
 
 function mod(n: number, m: number) { return ((n % m) + m) % m; }
 
-function getCardStyle(slotAngle: number, cardW: number): React.CSSProperties {
+function getCardStyle(slotAngle: number): React.CSSProperties {
   const theta = (slotAngle / N) * 2 * Math.PI;
-
-  // Scale radii with card width
-  const RX = cardW * 1.28;
-  const RZ = cardW * 0.52;
+  const RX = 640;
+  const RZ = 260;
   const x = Math.sin(theta) * RX;
   const z = RZ * (1 - Math.cos(theta));
-
   const rotate2d = slotAngle * 18;
-
   const dist = Math.abs(slotAngle);
   const y = dist * 80;
-
   const scale = Math.max(0.65, 1 - dist * 0.13);
   const opacity = Math.max(0.25, 1 - dist * 0.22);
   const zIndex = Math.round(100 - dist * 25);
@@ -125,23 +103,20 @@ function getCardStyle(slotAngle: number, cardW: number): React.CSSProperties {
   };
 }
 
-function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: boolean; cardW: number }) {
-  const isSmall = cardW < 400;
-
+function FullCard({ project, isCenter }: { project: Project; isCenter: boolean }) {
   return (
     <div style={{
-      width: cardW,
+      width: CARD_W,
       background: '#0c0c0c',
-      borderRadius: isSmall ? 20 : 28,
+      borderRadius: 28,
       overflow: 'hidden',
       border: isCenter
         ? `1px solid ${ACCENT}55`
         : '1px solid rgba(255,255,255,0.09)',
       pointerEvents: 'none',
     }}>
-      {/* Square image */}
-      <div style={{ padding: isSmall ? '12px 12px 0' : '16px 16px 0' }}>
-        <div style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden', position: 'relative', borderRadius: isSmall ? 12 : 16 }}>
+      <div style={{ padding: '16px 16px 0' }}>
+        <div style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden', position: 'relative', borderRadius: 16 }}>
           <img
             src={project.image}
             alt={project.title}
@@ -155,7 +130,7 @@ function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: bo
           }} />
           {isCenter && (
             <div style={{
-              position: 'absolute', top: 12, right: 12,
+              position: 'absolute', top: 16, right: 16,
               width: 9, height: 9, borderRadius: '50%',
               background: ACCENT, boxShadow: `0 0 10px ${ACCENT}`,
             }} />
@@ -163,35 +138,33 @@ function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: bo
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{ padding: isSmall ? '14px 16px 18px' : '18px 24px 24px' }}>
-        <div style={{ display: 'flex', gap: 6, marginBottom: isSmall ? 10 : 14, flexWrap: 'wrap' }}>
+      <div style={{ padding: '18px 24px 24px' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
           {project.stats.map((s, i) => (
             <div key={i} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: isSmall ? '4px 10px' : '5px 13px', borderRadius: 100,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '5px 13px', borderRadius: 100,
               background: `${ACCENT}18`, border: `1px solid ${ACCENT}50`,
             }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: ACCENT, boxShadow: `0 0 6px ${ACCENT}` }} />
-              <span style={{ color: ACCENT, fontSize: isSmall ? 11 : 12, fontWeight: 800, fontFamily: 'system-ui,sans-serif' }}>{s.value}</span>
-              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: isSmall ? 11 : 12, fontWeight: 600, fontFamily: 'system-ui,sans-serif' }}>{s.label}</span>
+              <span style={{ color: ACCENT, fontSize: 12, fontWeight: 800, fontFamily: 'system-ui,sans-serif' }}>{s.value}</span>
+              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 600, fontFamily: 'system-ui,sans-serif' }}>{s.label}</span>
             </div>
           ))}
         </div>
         <h2 style={{
-          margin: `0 0 ${isSmall ? 6 : 8}px`, fontSize: isSmall ? 18 : 24, fontWeight: 800, color: '#ffffff',
+          margin: '0 0 8px', fontSize: 24, fontWeight: 800, color: '#ffffff',
           letterSpacing: '-0.03em', lineHeight: 1.2, fontFamily: 'system-ui,sans-serif',
         }}>{project.title}</h2>
         <p style={{
-          margin: `0 0 ${isSmall ? 12 : 16}px`, fontSize: isSmall ? 12 : 13, lineHeight: 1.65,
+          margin: '0 0 16px', fontSize: 13, lineHeight: 1.65,
           color: 'rgba(255, 255, 255, 0.81)', fontFamily: 'system-ui,sans-serif',
           display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>{project.description}</p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: isSmall ? 5 : 7 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
           {project.tech.map((t, i) => (
             <span key={i} style={{
-              fontSize: isSmall ? 10 : 11, fontWeight: 700,
-              padding: isSmall ? '4px 9px' : '5px 12px', borderRadius: 100,
+              fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 100,
               background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.55)',
               border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'system-ui,sans-serif',
             }}>{t}</span>
@@ -202,118 +175,18 @@ function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: bo
   );
 }
 
-// Custom drag cursor — circle with gradient + "Drag" text
-function DragCursor({ mousePos, isDragging, isHovering }: {
-  mousePos: { x: number; y: number };
-  isDragging: boolean;
-  isHovering: boolean;
-}) {
-  const [pos, setPos] = useState({ x: -200, y: -200 });
-  const posRef = useRef({ x: -200, y: -200 });
-  const targetRef = useRef(mousePos);
-  const rafRef = useRef(0);
-
-  useEffect(() => {
-    targetRef.current = mousePos;
-  }, [mousePos]);
-
-  useEffect(() => {
-    const loop = () => {
-      // Very high lerp = almost instant follow
-      const lerpFactor = 0.55;
-      posRef.current = {
-        x: posRef.current.x + (targetRef.current.x - posRef.current.x) * lerpFactor,
-        y: posRef.current.y + (targetRef.current.y - posRef.current.y) * lerpFactor,
-      };
-      setPos({ ...posRef.current });
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, []);
-
-  const visible = isHovering || isDragging;
-  const SIZE = isDragging ? 100 : 88;
-
-  return (
-    <>
-      <style>{`
-        @keyframes spinRing {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-        @keyframes arrowPulse {
-          0%,100% { opacity: 1; transform: scaleX(1); }
-          50%      { opacity: 0.6; transform: scaleX(0.82); }
-        }
-      `}</style>
-      <div
-        style={{
-          position: 'fixed',
-          left: pos.x,
-          top: pos.y,
-          width: SIZE,
-          height: SIZE,
-          borderRadius: '50%',
-          pointerEvents: 'none',
-          zIndex: 9999,
-          transform: 'translate(-50%, -50%)',
-          opacity: visible ? 1 : 0,
-          scale: visible ? '1' : '0.4',
-          transition: 'opacity 0.18s ease, scale 0.18s ease, width 0.18s ease, height 0.18s ease',
-          background: 'linear-gradient(135deg, #4F1079, #1C0860, #000000)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 3,
-          boxShadow: '0 0 28px rgba(79,16,121,0.55), 0 2px 16px rgba(0,0,0,0.5)',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Spinning highlight ring */}
-        <div style={{
-          position: 'absolute', inset: 0, borderRadius: '50%',
-          background: 'conic-gradient(from 0deg, transparent 70%, rgba(255,255,255,0.18) 100%)',
-          animation: 'spinRing 1.6s linear infinite',
-        }} />
-
-        {/* Arrows */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, animation: 'arrowPulse 1.1s ease-in-out infinite' }}>
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M11 4L6 9L11 14" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M7 4L12 9L7 14" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-
-        {/* Label */}
-        <span style={{
-          fontSize: 10,
-          fontWeight: 800,
-          letterSpacing: '0.1em',
-          color: 'rgba(255,255,255,0.9)',
-          fontFamily: 'system-ui, sans-serif',
-          textTransform: 'uppercase',
-        }}>
-          {isDragging ? 'Drag' : 'Drag'}
-        </span>
-      </div>
-    </>
-  );
-}
-
 export default function ProductShowcase() {
-  const cardW = useCardWidth();
   const rotationRef = useRef(0);
   const springRef = useRef(createSpring(260, 26, 1));
   const rafRef = useRef(0);
   const [renderRotation, setRenderRotation] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [cursor, setCursor] = useState({ x: -100, y: -100 });
   const [isHovering, setIsHovering] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [cursorRing, setCursorRing] = useState({ x: -100, y: -100 });
+  const ringRef = useRef({ x: -100, y: -100 });
 
+  const startYRef = useRef(0);
   const startXRef = useRef(0);
   const startRotRef = useRef(0);
   const velocityRef = useRef(0);
@@ -339,7 +212,28 @@ export default function ProductShowcase() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
+  // Custom cursor tracking
+  useEffect(() => {
+    let ringRaf: number;
+    const moveCursor = (e: MouseEvent) => {
+      setCursor({ x: e.clientX, y: e.clientY });
+      // Ring lags behind with lerp
+      const lerp = () => {
+        ringRef.current.x += (e.clientX - ringRef.current.x) * 0.18;
+        ringRef.current.y += (e.clientY - ringRef.current.y) * 0.18;
+        setCursorRing({ x: ringRef.current.x, y: ringRef.current.y });
+        ringRaf = requestAnimationFrame(lerp);
+      };
+      cancelAnimationFrame(ringRaf);
+      ringRaf = requestAnimationFrame(lerp);
+    };
+    window.addEventListener('mousemove', moveCursor);
+    return () => { window.removeEventListener('mousemove', moveCursor); cancelAnimationFrame(ringRaf); };
+  }, []);
+
   const onPointerDown = useCallback((e: React.PointerEvent) => {
+    // Only handle mouse or horizontal touch
+    if (e.pointerType === 'touch') return; // let touch be handled by onTouchStart
     isDraggingRef.current = true;
     setIsDragging(true);
     startXRef.current = e.clientX;
@@ -351,7 +245,6 @@ export default function ProductShowcase() {
   }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
-    setMousePos({ x: e.clientX, y: e.clientY });
     if (!isDraggingRef.current) return;
     const now = Date.now();
     const dt = now - lastTimeRef.current;
@@ -359,7 +252,6 @@ export default function ProductShowcase() {
     if (dt > 0) velocityRef.current = dx / dt;
     lastXRef.current = e.clientX;
     lastTimeRef.current = now;
-
     const PX_PER_SLOT = 340;
     const delta = (e.clientX - startXRef.current) / PX_PER_SLOT;
     rotationRef.current = startRotRef.current - delta;
@@ -371,7 +263,59 @@ export default function ProductShowcase() {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
     setIsDragging(false);
+    const PX_PER_SLOT = 340;
+    const momentumSlots = -(velocityRef.current * 0.18) / PX_PER_SLOT * 60;
+    const target = Math.round(rotationRef.current + momentumSlots);
+    springRef.current.setImmediate(rotationRef.current);
+    springRef.current.setTarget(target);
+  }, []);
 
+  // Touch handlers — detect horizontal vs vertical swipe
+  const touchStartXRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  const isTouchDraggingRef = useRef(false);
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+    startRotRef.current = rotationRef.current;
+    lastXRef.current = e.touches[0].clientX;
+    lastTimeRef.current = Date.now();
+    velocityRef.current = 0;
+    isTouchDraggingRef.current = false;
+  }, []);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - touchStartXRef.current;
+    const dy = e.touches[0].clientY - touchStartYRef.current;
+
+    // If vertical swipe dominant — let page scroll, don't drag carousel
+    if (!isTouchDraggingRef.current && Math.abs(dy) > Math.abs(dx)) return;
+
+    // Horizontal drag — take over
+    if (Math.abs(dx) > 8) {
+      isTouchDraggingRef.current = true;
+      e.stopPropagation();
+    }
+    if (!isTouchDraggingRef.current) return;
+
+    const now = Date.now();
+    const dt = now - lastTimeRef.current;
+    const ddx = e.touches[0].clientX - lastXRef.current;
+    if (dt > 0) velocityRef.current = ddx / dt;
+    lastXRef.current = e.touches[0].clientX;
+    lastTimeRef.current = now;
+
+    const PX_PER_SLOT = 340;
+    const delta = (e.touches[0].clientX - touchStartXRef.current) / PX_PER_SLOT;
+    rotationRef.current = startRotRef.current - delta;
+    setRenderRotation(rotationRef.current);
+    springRef.current.setImmediate(rotationRef.current);
+  }, []);
+
+  const onTouchEnd = useCallback(() => {
+    if (!isTouchDraggingRef.current) return;
+    isTouchDraggingRef.current = false;
     const PX_PER_SLOT = 340;
     const momentumSlots = -(velocityRef.current * 0.18) / PX_PER_SLOT * 60;
     const target = Math.round(rotationRef.current + momentumSlots);
@@ -383,88 +327,154 @@ export default function ProductShowcase() {
   const visibleSlots = [-1, 0, 1];
 
   return (
-    <>
-      <DragCursor mousePos={mousePos} isDragging={isDragging} isHovering={isHovering} />
+    // ─── FIX: id="portfolio" add kiya taake Navbar ka scroll yahan aaye ───
+    <section
+      id="portfolio"
+      style={{
+        background: 'white',
+        overflow: 'hidden',
+        padding: '80px 0 70px',
+        userSelect: 'none',
+        position: 'relative',
+        // ─── FIX: scroll-margin-top taake navbar ke neeche na chhup jaaye ───
+        scrollMarginTop: '100px',
+      }}
+    >
+      <div style={{
+        position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
+        width: 800, height: 500,
+        background: `radial-gradient(ellipse, ${ACCENT}08 0%, transparent 70%)`,
+        pointerEvents: 'none', filter: 'blur(80px)',
+      }} />
 
-      <section id="portfolio" style={{
-        background: 'white', overflow: 'hidden',
-        padding: '80px 0 70px', userSelect: 'none', position: 'relative',
-        cursor: 'none', // hide default cursor over whole section
+      <div style={{ textAlign: 'center', marginBottom: 98, padding: '0 24px' }}>
+        <h2
+          style={{
+            fontSize: 'clamp(44px, 6vw, 96px)',
+            fontWeight: 650,
+            color: 'black',
+            letterSpacing: '-0.02em',
+            lineHeight: 1.05,
+            margin: 0,
+            fontFamily: 'system-ui, sans-serif',
+          }}
+        >
+          A growing collection of<br />successful products.
+        </h2>
+      </div>
+
+      {/* 3D Stage */}
+      <div
+        style={{
+          position: 'relative',
+          height: CARD_W + 320,
+          perspective: '1100px',
+          perspectiveOrigin: '50% 30%',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          cursor: 'pointer',
+          touchAction: 'pan-y',
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => { setIsHovering(false); setCursor({ x: -100, y: -100 }); setCursorRing({ x: -100, y: -100 }); }}
+      >
+        {visibleSlots.map((slot) => {
+          const cardIndex = mod(centerIndex + slot, N);
+          const slotAngle = (centerIndex + slot) - renderRotation;
+          const isCenter = Math.abs(slotAngle) < 0.5;
+          const style = getCardStyle(slotAngle);
+
+          return (
+            <div
+              key={`${slot}-${cardIndex}`}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: '50%',
+                marginLeft: -CARD_W / 2,
+                transformStyle: 'preserve-3d',
+                willChange: 'transform',
+                transition: 'none',
+                ...style,
+              }}
+            >
+              {isCenter && (
+                <div style={{
+                  position: 'absolute', inset: -4, borderRadius: 32,
+                  background: `linear-gradient(135deg, ${ACCENT}22, transparent 60%)`,
+                  zIndex: -1, filter: 'blur(10px)',
+                  pointerEvents: 'none',
+                }} />
+              )}
+              <FullCard project={projects[cardIndex]} isCenter={isCenter} />
+            </div>
+          );
+        })}
+      </div>
+      {/* Custom Cursor — desktop only */}
+      <style>{`
+        @keyframes cursorPulse {
+          0%, 100% { box-shadow: 0 4px 24px rgba(0,0,0,0.55), 0 0 0 0 rgba(255,255,255,0.15); }
+          50%       { box-shadow: 0 4px 24px rgba(0,0,0,0.55), 0 0 0 6px rgba(255,255,255,0); }
+        }
+      `}</style>
+
+      {/* Custom Drag Cursor — only on cards hover, offset so pointer stays visible */}
+      <div style={{
+        position: 'fixed',
+        left: cursorRing.x + 48,   // offset right so pointer arrow stays visible
+        top: cursorRing.y - 48,    // offset up so pointer arrow stays visible
+        transform: 'translate(-50%, -50%)',
+        pointerEvents: 'none',
+        zIndex: 99999,
+        display: isHovering ? 'flex' : 'none',
+        alignItems: 'center',
+        gap: 8,
+        opacity: isHovering ? 1 : 0,
+        transition: 'opacity 0.2s ease',
       }}>
+        {/* Left dot */}
         <div style={{
-          position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
-          width: 800, height: 500,
-          background: `radial-gradient(ellipse, ${ACCENT}08 0%, transparent 70%)`,
-          pointerEvents: 'none', filter: 'blur(80px)',
+          width: 6, height: 6, borderRadius: '50%',
+          background: '#111',
+          flexShrink: 0,
         }} />
 
-        <div style={{ textAlign: 'center', marginBottom: 98, padding: '0 24px' }}>
-          <h2
-            style={{
-              fontSize: 'clamp(44px, 6vw, 96px)',
-              fontWeight: 650,
-              color: 'black',
-              letterSpacing: '-0.02em',
-              lineHeight: 1.05,
-              margin: 0,
-              fontFamily: 'system-ui, sans-serif',
-            }}
-          >
-            A growing collection of<br />successful products.
-          </h2>
+        {/* Black circle with Drag text */}
+        <div style={{
+          width: isDragging ? 82 : 70,
+          height: isDragging ? 82 : 70,
+          borderRadius: '50%',
+          background: '#111111',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'width 0.15s ease, height 0.15s ease',
+          flexShrink: 0,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        }}>
+          <span style={{
+            color: '#ffffff',
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            fontFamily: 'system-ui, sans-serif',
+          }}>Drag</span>
         </div>
 
-        {/* 3D Stage */}
-        <div
-          style={{
-            position: 'relative',
-            height: cardW + 320,
-            perspective: '1100px',
-            perspectiveOrigin: '50% 30%',
-            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-            touchAction: 'none',
-          }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          onPointerEnter={() => setIsHovering(true)}
-          onPointerLeave={() => { setIsHovering(false); setIsDragging(false); isDraggingRef.current = false; }}
-        >
-          {visibleSlots.map((slot) => {
-            const cardIndex = mod(centerIndex + slot, N);
-            const slotAngle = (centerIndex + slot) - renderRotation;
-            const isCenter = Math.abs(slotAngle) < 0.5;
-            const style = getCardStyle(slotAngle, cardW);
-
-            return (
-              <div
-                key={`${slot}-${cardIndex}`}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: '50%',
-                  marginLeft: -cardW / 2,
-                  transformStyle: 'preserve-3d',
-                  willChange: 'transform',
-                  transition: 'none',
-                  ...style,
-                }}
-              >
-                {isCenter && (
-                  <div style={{
-                    position: 'absolute', inset: -4, borderRadius: 32,
-                    background: `linear-gradient(135deg, ${ACCENT}22, transparent 60%)`,
-                    zIndex: -1, filter: 'blur(10px)',
-                    pointerEvents: 'none',
-                  }} />
-                )}
-                <FullCard project={projects[cardIndex]} isCenter={isCenter} cardW={cardW} />
-              </div>
-            );
-          })}
-        </div>
-      </section>
-    </>
+        {/* Right dot */}
+        <div style={{
+          width: 6, height: 6, borderRadius: '50%',
+          background: '#111',
+          flexShrink: 0,
+        }} />
+      </div>
+    </section>
   );
 }

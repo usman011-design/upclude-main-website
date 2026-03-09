@@ -14,14 +14,14 @@ export default function Home() {
       {/* ── HERO + SERVICE CARDS — exactly 100vh ── */}
       <div className="relative">
         {/* Logo — absolute over the hero section */}
-        <header className="absolute top-0 left-0 w-full px-16 py-8 flex justify-start z-20">
+        <header className="absolute top-0 left-0 w-full px-8 md:px-16 py-6 md:py-8 flex justify-start z-20">
           <Image
             src="/main-logo.png"
             alt="Company Logo"
             width={100}
             height={100}
             priority
-            className="object-contain"
+            className="object-contain w-[60px] h-[60px] md:w-[100px] md:h-[100px]"
           />
         </header>
 

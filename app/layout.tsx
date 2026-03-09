@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   },
   description: "Upclude - Innovate, Build and Scale Digitally",
   icons: {
-    icon: "./logo.png",
+    icon: "./logo-for-title.png",
   },
 };
 
