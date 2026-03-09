@@ -1,6 +1,14 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  animate,
+  PanInfo,
+} from 'framer-motion';
 
 interface Project {
   title: string;
@@ -16,7 +24,7 @@ const projects: Project[] = [
     description: 'Grantmatch.ai is a SaaS platform that automates grant discovery by scanning live databases and delivering personalized funding matches.',
     image: './grantmatch.png',
     stats: [{ label: 'Users', value: '10K+' }, { label: 'Uptime', value: '99%' }],
-    tech: ['React', 'Next', 'Typescript', 'Node', 'javascript'],
+    tech: ['React', 'Next', 'Typescript', 'Node', 'Javascript'],
   },
   {
     title: 'Vow Earn',
@@ -55,9 +63,11 @@ const projects: Project[] = [
   },
 ];
 
-
 const ACCENT = '#00ff88';
 const N = projects.length;
+const PX_PER_SLOT = 160;
+
+function mod(n: number, m: number) { return ((n % m) + m) % m; }
 
 function useCardW() {
   const [cardW, setCardW] = useState(420);
@@ -76,48 +86,27 @@ function useCardW() {
   return cardW;
 }
 
-function createSpring(stiffness = 280, damping = 28, mass = 1) {
-  let value = 0;
-  let velocity = 0;
-  let target = 0;
-  return {
-    get: () => value,
-    setTarget: (t: number) => { target = t; },
-    setImmediate: (v: number) => { value = v; velocity = 0; target = v; },
-    tick: (dt: number) => {
-      const force = stiffness * (target - value);
-      const dampingForce = damping * velocity;
-      const acceleration = (force - dampingForce) / mass;
-      velocity += acceleration * dt;
-      value += velocity * dt;
-      return Math.abs(target - value) > 0.0001 || Math.abs(velocity) > 0.0001;
-    },
-  };
-}
-
-function mod(n: number, m: number) { return ((n % m) + m) % m; }
-
-function getCardStyle(slotAngle: number, cardW: number): React.CSSProperties {
+function getCardTransform(slotAngle: number, cardW: number) {
   const theta = (slotAngle / N) * 2 * Math.PI;
   const RX = Math.min(640, cardW * 1.5);
   const RZ = Math.min(260, cardW * 0.6);
   const x = Math.sin(theta) * RX;
   const z = RZ * (1 - Math.cos(theta));
-  const rotate2d = slotAngle * 18;
+  const rotate = slotAngle * 18;
   const dist = Math.abs(slotAngle);
   const y = dist * 60;
   const scale = Math.max(0.65, 1 - dist * 0.13);
-  const opacity = Math.max(0.25, 1 - dist * 0.22);
+  const opacity = dist > 1.5 ? 0 : Math.max(0.25, 1 - dist * 0.22);
   const zIndex = Math.round(100 - dist * 25);
-  return {
-    transform: `translateX(${x}px) translateY(${y}px) translateZ(${z}px) rotate(${rotate2d}deg) scale(${scale})`,
-    opacity,
-    zIndex,
-    filter: 'none',
-  };
+  return { x, y, z, rotate, scale, opacity, zIndex };
 }
 
-function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: boolean; cardW: number }) {
+// ─── FullCard ──────────────────────────────────────────────────────────────────
+function FullCard({ project, isCenter, cardW }: {
+  project: Project;
+  isCenter: boolean;
+  cardW: number;
+}) {
   return (
     <div style={{
       width: cardW,
@@ -134,7 +123,6 @@ function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: bo
             alt={project.title}
             draggable={false}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            referrerPolicy="no-referrer"
           />
           <div style={{
             position: 'absolute', inset: 0,
@@ -149,6 +137,7 @@ function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: bo
           )}
         </div>
       </div>
+
       <div style={{ padding: '18px 24px 24px' }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
           {project.stats.map((s, i) => (
@@ -164,12 +153,12 @@ function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: bo
           ))}
         </div>
         <h2 style={{
-          margin: '0 0 8px', fontSize: 24, fontWeight: 800, color: '#ffffff',
+          margin: '0 0 8px', fontSize: 24, fontWeight: 800, color: '#fff',
           letterSpacing: '-0.03em', lineHeight: 1.2, fontFamily: 'system-ui,sans-serif',
         }}>{project.title}</h2>
         <p style={{
           margin: '0 0 16px', fontSize: 13, lineHeight: 1.65,
-          color: 'rgba(255, 255, 255, 0.81)', fontFamily: 'system-ui,sans-serif',
+          color: 'rgba(255,255,255,0.81)', fontFamily: 'system-ui,sans-serif',
           display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>{project.description}</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
@@ -186,197 +175,155 @@ function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: bo
   );
 }
 
+// ─── CarouselCard — each slot is independently motion-driven ──────────────────
+function CarouselCard({
+  slot,
+  rotation,
+  cardW,
+}: {
+  slot: number;
+  rotation: ReturnType<typeof useSpring>;
+  cardW: number;
+}) {
+  // slotAngle changes every frame as rotation changes — drives all transforms
+  const slotAngle = useTransform(rotation, (r) => (Math.round(r) + slot) - r);
+  const cardIndex = useTransform(rotation, (r) => mod(Math.round(r) + slot, N));
+
+  const x       = useTransform(slotAngle, (a) => getCardTransform(a, cardW).x);
+  const y       = useTransform(slotAngle, (a) => getCardTransform(a, cardW).y);
+  const scale   = useTransform(slotAngle, (a) => getCardTransform(a, cardW).scale);
+  const opacity = useTransform(slotAngle, (a) => getCardTransform(a, cardW).opacity);
+  const rotate  = useTransform(slotAngle, (a) => getCardTransform(a, cardW).rotate);
+  const zIndex  = useTransform(slotAngle, (a) => getCardTransform(a, cardW).zIndex);
+
+  // React state updated from motion value changes
+  const [projectIndex, setProjectIndex] = useState(mod(slot, N));
+  const [isCenter, setIsCenter]         = useState(slot === 0);
+
+  useEffect(() => {
+    const u1 = cardIndex.on('change',  (v) => setProjectIndex(mod(Math.round(v), N)));
+    const u2 = slotAngle.on('change',  (a) => setIsCenter(Math.abs(a) < 0.5));
+    return () => { u1(); u2(); };
+  }, [cardIndex, slotAngle]);
+
+  return (
+    <motion.div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: '50%',
+        marginLeft: -cardW / 2,
+        x,
+        y,
+        scale,
+        opacity,
+        rotate,
+        zIndex,
+        transformStyle: 'preserve-3d',
+        willChange: 'transform, opacity',
+      }}
+    >
+      {isCenter && (
+        <div style={{
+          position: 'absolute', inset: -4, borderRadius: 32,
+          background: `linear-gradient(135deg, ${ACCENT}22, transparent 60%)`,
+          zIndex: -1, filter: 'blur(10px)', pointerEvents: 'none',
+        }} />
+      )}
+      <FullCard project={projects[projectIndex]} isCenter={isCenter} cardW={cardW} />
+    </motion.div>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function ProductShowcase() {
   const cardW = useCardW();
-  const rotationRef = useRef(0);
-  const springRef = useRef(createSpring(260, 26, 1));
-  const rafRef = useRef(0);
-  const [renderRotation, setRenderRotation] = useState(0);
+
+  // rotationMV = raw drag value (no smoothing)
+  const rotationMV = useMotionValue(0);
+
+  // rotation = spring-smoothed version shown to cards
+  const rotation = useSpring(rotationMV, {
+    stiffness: 380,
+    damping: 36,
+    mass: 0.8,
+    restDelta: 0.001,
+    restSpeed: 0.001,
+  });
+
+  const isDraggingRef = useRef(false);
+  const startRotRef   = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [cursorRing, setCursorRing] = useState({ x: -100, y: -100 });
   const ringRef = useRef({ x: -100, y: -100 });
 
-  const startXRef = useRef(0);
-  const startYRef = useRef(0);
-  const startRotRef = useRef(0);
-  const velocityRef = useRef(0);
-  const lastXRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const isDraggingRef = useRef(false);
-
-  // ── Touch state ──────────────────────────────────────────────────────────
-  const touchLockedRef = useRef<'none' | 'h' | 'v'>('none');
-  const isTouchDraggingRef = useRef(false);
-
-  // ── Ref for the 3D stage div (needed for passive:false listener) ─────────
-  const stageRef = useRef<HTMLDivElement>(null);
-  const sectionRef = useRef<HTMLElement>(null);
-
-  // Animation loop
+  // Cursor ring lerp — desktop
   useEffect(() => {
-    let lastTs = 0;
-    const loop = (ts: number) => {
-      const dt = Math.min((ts - lastTs) / 1000, 0.05);
-      lastTs = ts;
-      if (!isDraggingRef.current && !isTouchDraggingRef.current) {
-        const active = springRef.current.tick(dt);
-        if (active) {
-          rotationRef.current = springRef.current.get();
-          setRenderRotation(rotationRef.current);
-        }
-      }
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, []);
-
-  // Custom cursor tracking (desktop only)
-  useEffect(() => {
-    let ringRaf: number;
-    const moveCursor = (e: MouseEvent) => {
+    let raf: number;
+    const onMove = (e: MouseEvent) => {
       const lerp = () => {
         ringRef.current.x += (e.clientX - ringRef.current.x) * 0.18;
         ringRef.current.y += (e.clientY - ringRef.current.y) * 0.18;
-        setCursorRing({ x: ringRef.current.x, y: ringRef.current.y });
-        ringRaf = requestAnimationFrame(lerp);
+        setCursorRing({ ...ringRef.current });
+        raf = requestAnimationFrame(lerp);
       };
-      cancelAnimationFrame(ringRaf);
-      ringRaf = requestAnimationFrame(lerp);
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(lerp);
     };
-    window.addEventListener('mousemove', moveCursor);
-    return () => { window.removeEventListener('mousemove', moveCursor); cancelAnimationFrame(ringRaf); };
+    window.addEventListener('mousemove', onMove);
+    return () => { window.removeEventListener('mousemove', onMove); cancelAnimationFrame(raf); };
   }, []);
 
-  // ── KEY FIX: Register touchmove with passive:false so preventDefault works ──
-  // React JSX handlers are always passive:true — preventDefault() silently fails in them.
-  // We must use addEventListener directly with { passive: false }.
+  // ── Framer pan handlers ────────────────────────────────────────────────────
+  const onPanStart = useCallback(() => {
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    // Freeze the spring — capture current displayed rotation as drag start
+    const current = rotation.get();
+    rotationMV.set(current);
+    startRotRef.current = current;
+  }, [rotation, rotationMV]);
+
+  const onPan = useCallback((_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // offset.x is cumulative px from drag start — very smooth
+    const delta = -info.offset.x / PX_PER_SLOT;
+    rotationMV.set(startRotRef.current + delta);
+  }, [rotationMV]);
+
+  const onPanEnd = useCallback((_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    isDraggingRef.current = false;
+    setIsDragging(false);
+
+    // info.velocity.x = px/ms — convert to slots and add momentum
+    const momentumSlots = (-info.velocity.x / PX_PER_SLOT) * 0.1;
+    const snapped = Math.round(rotationMV.get() + momentumSlots);
+
+    // Animate raw MV to snapped value — spring will smooth the arrival
+    animate(rotationMV, snapped, {
+      type: 'spring',
+      stiffness: 380,
+      damping: 36,
+      mass: 0.8,
+    });
+  }, [rotationMV]);
+
+  // Block page scroll during horizontal drag on touch
+  const stageRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      const t = e.touches[0];
-      startXRef.current = t.clientX;
-      startYRef.current = t.clientY;
-      lastXRef.current = t.clientX;
-      lastTimeRef.current = Date.now();
-      velocityRef.current = 0;
-      startRotRef.current = rotationRef.current;
-      isTouchDraggingRef.current = false;
-      touchLockedRef.current = 'none';
-      springRef.current.setImmediate(rotationRef.current);
+    const block = (e: TouchEvent) => {
+      if (isDraggingRef.current) e.preventDefault();
     };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      const t = e.touches[0];
-      const dx = t.clientX - startXRef.current;
-      const dy = t.clientY - startYRef.current;
-
-      // Lock direction once we have 8px movement
-      if (touchLockedRef.current === 'none') {
-        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-          touchLockedRef.current = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
-        }
-        return;
-      }
-
-      // Vertical — let browser scroll the page, do nothing
-      if (touchLockedRef.current === 'v') return;
-
-      // Horizontal — PREVENT page scroll and drive carousel
-      // This only works because passive: false is set below
-      e.preventDefault();
-
-      isTouchDraggingRef.current = true;
-
-      const now = Date.now();
-      const dtMs = now - lastTimeRef.current;
-      const ddx = t.clientX - lastXRef.current;
-      if (dtMs > 0) velocityRef.current = ddx / dtMs;
-      lastXRef.current = t.clientX;
-      lastTimeRef.current = now;
-
-      const PX_PER_SLOT = 240;
-      rotationRef.current = startRotRef.current - (dx / PX_PER_SLOT);
-      setRenderRotation(rotationRef.current);
-      springRef.current.setImmediate(rotationRef.current);
-    };
-
-    const handleTouchEnd = () => {
-      touchLockedRef.current = 'none';
-      if (!isTouchDraggingRef.current) return;
-      isTouchDraggingRef.current = false;
-      const PX_PER_SLOT = 240;
-      const momentumSlots = -(velocityRef.current * 0.2) / PX_PER_SLOT * 60;
-      const target = Math.round(rotationRef.current + momentumSlots);
-      springRef.current.setImmediate(rotationRef.current);
-      springRef.current.setTarget(target);
-    };
-
-    // passive: true  → touchstart (no preventDefault needed, better perf)
-    // passive: false → touchmove  (MUST call preventDefault for horizontal drag)
-    // passive: true  → touchend   (no preventDefault needed)
-    el.addEventListener('touchstart', handleTouchStart, { passive: true });
-    el.addEventListener('touchmove', handleTouchMove, { passive: false }); // ← THE FIX
-    el.addEventListener('touchend', handleTouchEnd, { passive: true });
-    el.addEventListener('touchcancel', handleTouchEnd, { passive: true });
-
-    return () => {
-      el.removeEventListener('touchstart', handleTouchStart);
-      el.removeEventListener('touchmove', handleTouchMove);
-      el.removeEventListener('touchend', handleTouchEnd);
-      el.removeEventListener('touchcancel', handleTouchEnd);
-    };
-  }, []); // runs once after mount
-
-  // ── Mouse / Pointer handlers (desktop) ──────────────────────────────────
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.pointerType === 'touch') return; // touch handled by useEffect above
-    isDraggingRef.current = true;
-    setIsDragging(true);
-    startXRef.current = e.clientX;
-    startRotRef.current = rotationRef.current;
-    lastXRef.current = e.clientX;
-    lastTimeRef.current = Date.now();
-    velocityRef.current = 0;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    el.addEventListener('touchmove', block, { passive: false });
+    return () => el.removeEventListener('touchmove', block);
   }, []);
 
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
-    const now = Date.now();
-    const dtMs = now - lastTimeRef.current;
-    const dx = e.clientX - lastXRef.current;
-    if (dtMs > 0) velocityRef.current = dx / dtMs;
-    lastXRef.current = e.clientX;
-    lastTimeRef.current = now;
-    const PX_PER_SLOT = 340;
-    const delta = (e.clientX - startXRef.current) / PX_PER_SLOT;
-    rotationRef.current = startRotRef.current - delta;
-    setRenderRotation(rotationRef.current);
-    springRef.current.setImmediate(rotationRef.current);
-  }, []);
-
-  const onPointerUp = useCallback((_e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    setIsDragging(false);
-    const PX_PER_SLOT = 340;
-    const momentumSlots = -(velocityRef.current * 0.18) / PX_PER_SLOT * 60;
-    const target = Math.round(rotationRef.current + momentumSlots);
-    springRef.current.setImmediate(rotationRef.current);
-    springRef.current.setTarget(target);
-  }, []);
-
-  const centerIndex = Math.round(renderRotation);
-  // Only 3 slots visible as requested
-  const visibleSlots = [-1, 0, 1];
+  const visibleSlots = [-2, -1, 0, 1, 2];
 
   return (
     <section
-      ref={sectionRef}
       id="portfolio"
       style={{
         background: 'white',
@@ -389,7 +336,22 @@ export default function ProductShowcase() {
         isolation: 'isolate',
       }}
     >
-      <div style={{ textAlign: 'center', marginBottom: 98, padding: '0 24px' }}>
+      {/* Ambient glow */}
+      <div style={{
+        position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
+        width: 800, height: 500, pointerEvents: 'none',
+        background: `radial-gradient(ellipse, ${ACCENT}08 0%, transparent 70%)`,
+        filter: 'blur(80px)',
+      }} />
+
+      {/* Heading — fade in on scroll */}
+      <motion.div
+        initial={{ opacity: 0, y: 28 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-80px' }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        style={{ textAlign: 'center', marginBottom: 98, padding: '0 24px' }}
+      >
         <h2 style={{
           fontSize: 'clamp(44px, 6vw, 96px)',
           fontWeight: 650,
@@ -401,109 +363,79 @@ export default function ProductShowcase() {
         }}>
           A growing collection of<br />successful products.
         </h2>
-      </div>
+      </motion.div>
 
-      {/* 3D Stage wrapper */}
+      {/* 3D Stage */}
       <div style={{ overflowX: 'clip', overflowY: 'visible', width: '100%' }}>
-        {/* 3D Stage — ref attached here for passive:false touch listeners */}
-        <div
+        <motion.div
           ref={stageRef}
           style={{
             position: 'relative',
             height: cardW + 320,
-            perspective: '1100px',
+            perspective: 1100,
             perspectiveOrigin: '50% 30%',
-            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-            cursor: 'pointer',
-            // FIX: 'pan-y' — browser handles vertical page scroll, JS handles horizontal drag
-            // This prevents the browser from taking over the horizontal gesture on mobile.
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            cursor: isDragging ? 'grabbing' : 'grab',
             touchAction: 'pan-y',
             overflow: 'visible',
           }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPanStart={onPanStart}
+          onPan={onPan}
+          onPanEnd={onPanEnd}
           onMouseEnter={() => setIsHovering(true)}
-          onMouseLeave={() => {
-            setIsHovering(false);
-            setCursorRing({ x: -100, y: -100 });
+          onMouseLeave={() => { setIsHovering(false); setCursorRing({ x: -100, y: -100 }); }}
+        >
+          {visibleSlots.map((slot) => (
+            <CarouselCard
+              key={slot}
+              slot={slot}
+              rotation={rotation}
+              cardW={cardW}
+            />
+          ))}
+        </motion.div>
+      </div>
+
+      {/* Custom drag cursor — desktop only */}
+      <motion.div
+        style={{
+          position: 'fixed',
+          left: cursorRing.x + 48,
+          top: cursorRing.y - 48,
+          translateX: '-50%',
+          translateY: '-50%',
+          pointerEvents: 'none',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+        animate={{ opacity: isHovering ? 1 : 0, scale: isHovering ? 1 : 0.8 }}
+        transition={{ duration: 0.18 }}
+      >
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#111', flexShrink: 0 }} />
+        <motion.div
+          animate={{ width: isDragging ? 82 : 70, height: isDragging ? 82 : 70 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+          style={{
+            borderRadius: '50%',
+            background: '#111',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
           }}
         >
-          {visibleSlots.map((slot) => {
-            const cardIndex = mod(centerIndex + slot, N);
-            const slotAngle = (centerIndex + slot) - renderRotation;
-            const isCenter = Math.abs(slotAngle) < 0.5;
-            const style = getCardStyle(slotAngle, cardW);
-
-            return (
-              <div
-                key={`${slot}-${cardIndex}`}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: '50%',
-                  marginLeft: -cardW / 2,
-                  transformStyle: 'preserve-3d',
-                  willChange: 'transform',
-                  transition: 'none',
-                  ...style,
-                }}
-              >
-                {isCenter && (
-                  <div style={{
-                    position: 'absolute', inset: -4, borderRadius: 32,
-                    background: `linear-gradient(135deg, ${ACCENT}22, transparent 60%)`,
-                    zIndex: -1, filter: 'blur(10px)',
-                    pointerEvents: 'none',
-                  }} />
-                )}
-                <FullCard project={projects[cardIndex]} isCenter={isCenter} cardW={cardW} />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Custom Cursor — desktop only */}
-      <style>{`
-        @keyframes cursorPulse {
-          0%, 100% { box-shadow: 0 4px 24px rgba(0,0,0,0.55), 0 0 0 0 rgba(255,255,255,0.15); }
-          50%       { box-shadow: 0 4px 24px rgba(0,0,0,0.55), 0 0 0 6px rgba(255,255,255,0); }
-        }
-      `}</style>
-
-      <div style={{
-        position: 'fixed',
-        left: cursorRing.x + 48,
-        top: cursorRing.y - 48,
-        transform: 'translate(-50%, -50%)',
-        pointerEvents: 'none',
-        zIndex: 99999,
-        display: isHovering ? 'flex' : 'none',
-        alignItems: 'center',
-        gap: 8,
-        opacity: isHovering ? 1 : 0,
-        transition: 'opacity 0.2s ease',
-      }}>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#111', flexShrink: 0 }} />
-        <div style={{
-          width: isDragging ? 82 : 70,
-          height: isDragging ? 82 : 70,
-          borderRadius: '50%',
-          background: '#111111',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'width 0.15s ease, height 0.15s ease',
-          flexShrink: 0,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-        }}>
           <span style={{
-            color: '#ffffff', fontSize: 12, fontWeight: 700,
+            color: '#fff', fontSize: 12, fontWeight: 700,
             letterSpacing: '0.04em', fontFamily: 'system-ui, sans-serif',
-          }}>Drag</span>
-        </div>
+          }}>
+            {isDragging ? '✦' : 'Drag'}
+          </span>
+        </motion.div>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#111', flexShrink: 0 }} />
-      </div>
+      </motion.div>
     </section>
   );
 }
