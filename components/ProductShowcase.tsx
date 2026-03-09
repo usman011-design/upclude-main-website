@@ -271,9 +271,30 @@ export default function ProductShowcase() {
   }, []);
 
   // Touch handlers — detect horizontal vs vertical swipe
+  const stageRef = useRef<HTMLDivElement>(null);
   const touchStartXRef = useRef(0);
   const touchStartYRef = useRef(0);
   const isTouchDraggingRef = useRef(false);
+
+  // Non-passive touch listener — needed for preventDefault to work on mobile
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const dx = e.touches[0].clientX - touchStartXRef.current;
+      const dy = e.touches[0].clientY - touchStartYRef.current;
+      if (isTouchDraggingRef.current) {
+        e.preventDefault(); // prevent page scroll during horizontal drag
+      } else if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+        isTouchDraggingRef.current = true;
+        e.preventDefault();
+      }
+    };
+
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => el.removeEventListener('touchmove', handleTouchMove);
+  }, []);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;
@@ -295,7 +316,6 @@ export default function ProductShowcase() {
     // Horizontal drag — take over
     if (Math.abs(dx) > 8) {
       isTouchDraggingRef.current = true;
-      e.stopPropagation();
     }
     if (!isTouchDraggingRef.current) return;
 
@@ -332,12 +352,13 @@ export default function ProductShowcase() {
       id="portfolio"
       style={{
         background: 'white',
-        overflow: 'hidden',
+        overflowX: 'clip',
+        overflowY: 'visible',
         padding: '80px 0 70px',
         userSelect: 'none',
         position: 'relative',
-        // ─── FIX: scroll-margin-top taake navbar ke neeche na chhup jaaye ───
         scrollMarginTop: '100px',
+        isolation: 'isolate',
       }}
     >
       <div style={{
@@ -363,8 +384,11 @@ export default function ProductShowcase() {
         </h2>
       </div>
 
+      {/* 3D Stage wrapper — clips vertical overflow only */}
+      <div style={{ overflowX: 'clip', overflowY: 'visible', width: '100%' }}>
       {/* 3D Stage */}
       <div
+        ref={stageRef}
         style={{
           position: 'relative',
           height: CARD_W + 320,
@@ -373,6 +397,8 @@ export default function ProductShowcase() {
           display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
           cursor: 'pointer',
           touchAction: 'pan-y',
+          overflow: 'visible',
+          WebkitOverflowScrolling: 'touch',
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -417,6 +443,7 @@ export default function ProductShowcase() {
           );
         })}
       </div>
+      </div>{/* end stage wrapper */}
       {/* Custom Cursor — desktop only */}
       <style>{`
         @keyframes cursorPulse {
