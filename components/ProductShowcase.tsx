@@ -48,23 +48,23 @@ const projects: Project[] = [
   },
   {
     title: 'Evermore Memories',
-    description: 'Evermore Memories lets you securely store, organize, and share photos, videos, notes, and keepsakes—preserve your life\'s precious moments forever.',
+    description: "Evermore Memories lets you securely store, organize, and share photos, videos, notes, and keepsakes—preserve your life's precious moments forever.",
     image: './evermore.png',
     stats: [{ label: 'Downloads', value: '50K+' }, { label: 'Rating', value: '4.8/5' }],
     tech: ['React Native', 'TypeScript', 'GraphQL'],
   },
 ];
 
+
 const ACCENT = '#00ff88';
 const N = projects.length;
 
-// Responsive card width
 function useCardW() {
   const [cardW, setCardW] = useState(420);
   useEffect(() => {
     const update = () => {
       const w = window.innerWidth;
-      if (w < 400) setCardW(w - 32);       // full width minus small margin
+      if (w < 400) setCardW(w - 32);
       else if (w < 640) setCardW(320);
       else if (w < 1024) setCardW(360);
       else setCardW(420);
@@ -76,12 +76,10 @@ function useCardW() {
   return cardW;
 }
 
-// Spring physics
 function createSpring(stiffness = 280, damping = 28, mass = 1) {
   let value = 0;
   let velocity = 0;
   let target = 0;
-
   return {
     get: () => value,
     setTarget: (t: number) => { target = t; },
@@ -99,19 +97,18 @@ function createSpring(stiffness = 280, damping = 28, mass = 1) {
 
 function mod(n: number, m: number) { return ((n % m) + m) % m; }
 
-function getCardStyle(slotAngle: number): React.CSSProperties {
+function getCardStyle(slotAngle: number, cardW: number): React.CSSProperties {
   const theta = (slotAngle / N) * 2 * Math.PI;
-  const RX = 640;
-  const RZ = 260;
+  const RX = Math.min(640, cardW * 1.5);
+  const RZ = Math.min(260, cardW * 0.6);
   const x = Math.sin(theta) * RX;
   const z = RZ * (1 - Math.cos(theta));
   const rotate2d = slotAngle * 18;
   const dist = Math.abs(slotAngle);
-  const y = dist * 80;
+  const y = dist * 60;
   const scale = Math.max(0.65, 1 - dist * 0.13);
   const opacity = Math.max(0.25, 1 - dist * 0.22);
   const zIndex = Math.round(100 - dist * 25);
-
   return {
     transform: `translateX(${x}px) translateY(${y}px) translateZ(${z}px) rotate(${rotate2d}deg) scale(${scale})`,
     opacity,
@@ -127,9 +124,7 @@ function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: bo
       background: '#0c0c0c',
       borderRadius: 28,
       overflow: 'hidden',
-      border: isCenter
-        ? `1px solid ${ACCENT}55`
-        : '1px solid rgba(255,255,255,0.09)',
+      border: isCenter ? `1px solid ${ACCENT}55` : '1px solid rgba(255,255,255,0.09)',
       pointerEvents: 'none',
     }}>
       <div style={{ padding: '16px 16px 0' }}>
@@ -154,7 +149,6 @@ function FullCard({ project, isCenter, cardW }: { project: Project; isCenter: bo
           )}
         </div>
       </div>
-
       <div style={{ padding: '18px 24px 24px' }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
           {project.stats.map((s, i) => (
@@ -199,25 +193,33 @@ export default function ProductShowcase() {
   const rafRef = useRef(0);
   const [renderRotation, setRenderRotation] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [cursor, setCursor] = useState({ x: -100, y: -100 });
   const [isHovering, setIsHovering] = useState(false);
   const [cursorRing, setCursorRing] = useState({ x: -100, y: -100 });
   const ringRef = useRef({ x: -100, y: -100 });
 
-  const startYRef = useRef(0);
   const startXRef = useRef(0);
+  const startYRef = useRef(0);
   const startRotRef = useRef(0);
   const velocityRef = useRef(0);
   const lastXRef = useRef(0);
   const lastTimeRef = useRef(0);
   const isDraggingRef = useRef(false);
 
+  // ── Touch state ──────────────────────────────────────────────────────────
+  const touchLockedRef = useRef<'none' | 'h' | 'v'>('none');
+  const isTouchDraggingRef = useRef(false);
+
+  // ── Ref for the 3D stage div (needed for passive:false listener) ─────────
+  const stageRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Animation loop
   useEffect(() => {
     let lastTs = 0;
     const loop = (ts: number) => {
       const dt = Math.min((ts - lastTs) / 1000, 0.05);
       lastTs = ts;
-      if (!isDraggingRef.current) {
+      if (!isDraggingRef.current && !isTouchDraggingRef.current) {
         const active = springRef.current.tick(dt);
         if (active) {
           rotationRef.current = springRef.current.get();
@@ -230,12 +232,10 @@ export default function ProductShowcase() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // Custom cursor tracking
+  // Custom cursor tracking (desktop only)
   useEffect(() => {
     let ringRaf: number;
     const moveCursor = (e: MouseEvent) => {
-      setCursor({ x: e.clientX, y: e.clientY });
-      // Ring lags behind with lerp
       const lerp = () => {
         ringRef.current.x += (e.clientX - ringRef.current.x) * 0.18;
         ringRef.current.y += (e.clientY - ringRef.current.y) * 0.18;
@@ -249,9 +249,91 @@ export default function ProductShowcase() {
     return () => { window.removeEventListener('mousemove', moveCursor); cancelAnimationFrame(ringRaf); };
   }, []);
 
+  // ── KEY FIX: Register touchmove with passive:false so preventDefault works ──
+  // React JSX handlers are always passive:true — preventDefault() silently fails in them.
+  // We must use addEventListener directly with { passive: false }.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      startXRef.current = t.clientX;
+      startYRef.current = t.clientY;
+      lastXRef.current = t.clientX;
+      lastTimeRef.current = Date.now();
+      velocityRef.current = 0;
+      startRotRef.current = rotationRef.current;
+      isTouchDraggingRef.current = false;
+      touchLockedRef.current = 'none';
+      springRef.current.setImmediate(rotationRef.current);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      const dx = t.clientX - startXRef.current;
+      const dy = t.clientY - startYRef.current;
+
+      // Lock direction once we have 8px movement
+      if (touchLockedRef.current === 'none') {
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+          touchLockedRef.current = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
+        }
+        return;
+      }
+
+      // Vertical — let browser scroll the page, do nothing
+      if (touchLockedRef.current === 'v') return;
+
+      // Horizontal — PREVENT page scroll and drive carousel
+      // This only works because passive: false is set below
+      e.preventDefault();
+
+      isTouchDraggingRef.current = true;
+
+      const now = Date.now();
+      const dtMs = now - lastTimeRef.current;
+      const ddx = t.clientX - lastXRef.current;
+      if (dtMs > 0) velocityRef.current = ddx / dtMs;
+      lastXRef.current = t.clientX;
+      lastTimeRef.current = now;
+
+      const PX_PER_SLOT = 240;
+      rotationRef.current = startRotRef.current - (dx / PX_PER_SLOT);
+      setRenderRotation(rotationRef.current);
+      springRef.current.setImmediate(rotationRef.current);
+    };
+
+    const handleTouchEnd = () => {
+      touchLockedRef.current = 'none';
+      if (!isTouchDraggingRef.current) return;
+      isTouchDraggingRef.current = false;
+      const PX_PER_SLOT = 240;
+      const momentumSlots = -(velocityRef.current * 0.2) / PX_PER_SLOT * 60;
+      const target = Math.round(rotationRef.current + momentumSlots);
+      springRef.current.setImmediate(rotationRef.current);
+      springRef.current.setTarget(target);
+    };
+
+    // passive: true  → touchstart (no preventDefault needed, better perf)
+    // passive: false → touchmove  (MUST call preventDefault for horizontal drag)
+    // passive: true  → touchend   (no preventDefault needed)
+    el.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false }); // ← THE FIX
+    el.addEventListener('touchend', handleTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+      el.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, []); // runs once after mount
+
+  // ── Mouse / Pointer handlers (desktop) ──────────────────────────────────
   const onPointerDown = useCallback((e: React.PointerEvent) => {
-    // Only handle mouse or horizontal touch
-    if (e.pointerType === 'touch') return; // let touch be handled by onTouchStart
+    if (e.pointerType === 'touch') return; // touch handled by useEffect above
     isDraggingRef.current = true;
     setIsDragging(true);
     startXRef.current = e.clientX;
@@ -265,9 +347,9 @@ export default function ProductShowcase() {
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDraggingRef.current) return;
     const now = Date.now();
-    const dt = now - lastTimeRef.current;
+    const dtMs = now - lastTimeRef.current;
     const dx = e.clientX - lastXRef.current;
-    if (dt > 0) velocityRef.current = dx / dt;
+    if (dtMs > 0) velocityRef.current = dx / dtMs;
     lastXRef.current = e.clientX;
     lastTimeRef.current = now;
     const PX_PER_SLOT = 340;
@@ -277,7 +359,7 @@ export default function ProductShowcase() {
     springRef.current.setImmediate(rotationRef.current);
   }, []);
 
-  const onPointerUp = useCallback((e: React.PointerEvent) => {
+  const onPointerUp = useCallback((_e: React.PointerEvent) => {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
     setIsDragging(false);
@@ -288,83 +370,13 @@ export default function ProductShowcase() {
     springRef.current.setTarget(target);
   }, []);
 
-  // Touch handlers — detect horizontal vs vertical swipe
-  const stageRef = useRef<HTMLDivElement>(null);
-  const touchStartXRef = useRef(0);
-  const touchStartYRef = useRef(0);
-  const isTouchDraggingRef = useRef(false);
-
-  // Non-passive touch listener for horizontal drag prevention
-  useEffect(() => {
-    const el = stageRef.current;
-    if (!el) return;
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!e.touches.length) return;
-      const dx = e.touches[0].clientX - touchStartXRef.current;
-      const dy = e.touches[0].clientY - touchStartYRef.current;
-
-      if (isTouchDraggingRef.current) {
-        e.preventDefault();
-        return;
-      }
-      // Determine direction on first significant movement
-      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
-        if (Math.abs(dx) >= Math.abs(dy)) {
-          isTouchDraggingRef.current = true;
-          e.preventDefault();
-        }
-        // vertical — let it scroll naturally, don't set dragging
-      }
-    };
-
-    el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    return () => el.removeEventListener('touchmove', handleTouchMove);
-  }, []);
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartXRef.current = e.touches[0].clientX;
-    touchStartYRef.current = e.touches[0].clientY;
-    startRotRef.current = rotationRef.current;
-    lastXRef.current = e.touches[0].clientX;
-    lastTimeRef.current = Date.now();
-    velocityRef.current = 0;
-    isTouchDraggingRef.current = false;
-  }, []);
-
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isTouchDraggingRef.current) return;
-
-    const now = Date.now();
-    const ddx = e.touches[0].clientX - lastXRef.current;
-    const dt = now - lastTimeRef.current;
-    if (dt > 0) velocityRef.current = ddx / dt;
-    lastXRef.current = e.touches[0].clientX;
-    lastTimeRef.current = now;
-
-    const PX_PER_SLOT = 280;
-    const delta = (e.touches[0].clientX - touchStartXRef.current) / PX_PER_SLOT;
-    rotationRef.current = startRotRef.current - delta;
-    setRenderRotation(rotationRef.current);
-    springRef.current.setImmediate(rotationRef.current);
-  }, []);
-
-  const onTouchEnd = useCallback(() => {
-    if (!isTouchDraggingRef.current) return;
-    isTouchDraggingRef.current = false;
-    const PX_PER_SLOT = 340;
-    const momentumSlots = -(velocityRef.current * 0.18) / PX_PER_SLOT * 60;
-    const target = Math.round(rotationRef.current + momentumSlots);
-    springRef.current.setImmediate(rotationRef.current);
-    springRef.current.setTarget(target);
-  }, []);
-
   const centerIndex = Math.round(renderRotation);
+  // Only 3 slots visible as requested
   const visibleSlots = [-1, 0, 1];
 
   return (
-    // ─── FIX: id="portfolio" add kiya taake Navbar ka scroll yahan aaye ───
     <section
+      ref={sectionRef}
       id="portfolio"
       style={{
         background: 'white',
@@ -377,89 +389,82 @@ export default function ProductShowcase() {
         isolation: 'isolate',
       }}
     >
-      <div style={{
-        position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
-        width: 800, height: 500,
-        background: `radial-gradient(ellipse, ${ACCENT}08 0%, transparent 70%)`,
-        pointerEvents: 'none', filter: 'blur(80px)',
-      }} />
-
       <div style={{ textAlign: 'center', marginBottom: 98, padding: '0 24px' }}>
-        <h2
-          style={{
-            fontSize: 'clamp(44px, 6vw, 96px)',
-            fontWeight: 650,
-            color: 'black',
-            letterSpacing: '-0.02em',
-            lineHeight: 1.05,
-            margin: 0,
-            fontFamily: 'system-ui, sans-serif',
-          }}
-        >
+        <h2 style={{
+          fontSize: 'clamp(44px, 6vw, 96px)',
+          fontWeight: 650,
+          color: 'black',
+          letterSpacing: '-0.02em',
+          lineHeight: 1.05,
+          margin: 0,
+          fontFamily: 'system-ui, sans-serif',
+        }}>
           A growing collection of<br />successful products.
         </h2>
       </div>
 
-      {/* 3D Stage wrapper — clips vertical overflow only */}
+      {/* 3D Stage wrapper */}
       <div style={{ overflowX: 'clip', overflowY: 'visible', width: '100%' }}>
-      {/* 3D Stage */}
-      <div
-        ref={stageRef}
-        style={{
-          position: 'relative',
-          height: cardW + 320,
-          perspective: '1100px',
-          perspectiveOrigin: '50% 30%',
-          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-          cursor: 'pointer',
-          touchAction: 'pan-y',
-          overflow: 'visible',
-          WebkitOverflowScrolling: 'touch',
-        }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => { setIsHovering(false); setCursor({ x: -100, y: -100 }); setCursorRing({ x: -100, y: -100 }); }}
-      >
-        {visibleSlots.map((slot) => {
-          const cardIndex = mod(centerIndex + slot, N);
-          const slotAngle = (centerIndex + slot) - renderRotation;
-          const isCenter = Math.abs(slotAngle) < 0.5;
-          const style = getCardStyle(slotAngle);
+        {/* 3D Stage — ref attached here for passive:false touch listeners */}
+        <div
+          ref={stageRef}
+          style={{
+            position: 'relative',
+            height: cardW + 320,
+            perspective: '1100px',
+            perspectiveOrigin: '50% 30%',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            cursor: 'pointer',
+            // FIX: 'pan-y' — browser handles vertical page scroll, JS handles horizontal drag
+            // This prevents the browser from taking over the horizontal gesture on mobile.
+            touchAction: 'pan-y',
+            overflow: 'visible',
+          }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => {
+            setIsHovering(false);
+            setCursorRing({ x: -100, y: -100 });
+          }}
+        >
+          {visibleSlots.map((slot) => {
+            const cardIndex = mod(centerIndex + slot, N);
+            const slotAngle = (centerIndex + slot) - renderRotation;
+            const isCenter = Math.abs(slotAngle) < 0.5;
+            const style = getCardStyle(slotAngle, cardW);
 
-          return (
-            <div
-              key={`${slot}-${cardIndex}`}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: '50%',
-                marginLeft: -cardW / 2,
-                transformStyle: 'preserve-3d',
-                willChange: 'transform',
-                transition: 'none',
-                ...style,
-              }}
-            >
-              {isCenter && (
-                <div style={{
-                  position: 'absolute', inset: -4, borderRadius: 32,
-                  background: `linear-gradient(135deg, ${ACCENT}22, transparent 60%)`,
-                  zIndex: -1, filter: 'blur(10px)',
-                  pointerEvents: 'none',
-                }} />
-              )}
-              <FullCard project={projects[cardIndex]} isCenter={isCenter} cardW={cardW} />
-            </div>
-          );
-        })}
+            return (
+              <div
+                key={`${slot}-${cardIndex}`}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: '50%',
+                  marginLeft: -cardW / 2,
+                  transformStyle: 'preserve-3d',
+                  willChange: 'transform',
+                  transition: 'none',
+                  ...style,
+                }}
+              >
+                {isCenter && (
+                  <div style={{
+                    position: 'absolute', inset: -4, borderRadius: 32,
+                    background: `linear-gradient(135deg, ${ACCENT}22, transparent 60%)`,
+                    zIndex: -1, filter: 'blur(10px)',
+                    pointerEvents: 'none',
+                  }} />
+                )}
+                <FullCard project={projects[cardIndex]} isCenter={isCenter} cardW={cardW} />
+              </div>
+            );
+          })}
+        </div>
       </div>
-      </div>{/* end stage wrapper */}
+
       {/* Custom Cursor — desktop only */}
       <style>{`
         @keyframes cursorPulse {
@@ -468,11 +473,10 @@ export default function ProductShowcase() {
         }
       `}</style>
 
-      {/* Custom Drag Cursor — only on cards hover, offset so pointer stays visible */}
       <div style={{
         position: 'fixed',
-        left: cursorRing.x + 48,   // offset right so pointer arrow stays visible
-        top: cursorRing.y - 48,    // offset up so pointer arrow stays visible
+        left: cursorRing.x + 48,
+        top: cursorRing.y - 48,
         transform: 'translate(-50%, -50%)',
         pointerEvents: 'none',
         zIndex: 99999,
@@ -482,41 +486,23 @@ export default function ProductShowcase() {
         opacity: isHovering ? 1 : 0,
         transition: 'opacity 0.2s ease',
       }}>
-        {/* Left dot */}
-        <div style={{
-          width: 6, height: 6, borderRadius: '50%',
-          background: '#111',
-          flexShrink: 0,
-        }} />
-
-        {/* Black circle with Drag text */}
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#111', flexShrink: 0 }} />
         <div style={{
           width: isDragging ? 82 : 70,
           height: isDragging ? 82 : 70,
           borderRadius: '50%',
           background: '#111111',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'width 0.15s ease, height 0.15s ease',
           flexShrink: 0,
           boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
         }}>
           <span style={{
-            color: '#ffffff',
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: '0.04em',
-            fontFamily: 'system-ui, sans-serif',
+            color: '#ffffff', fontSize: 12, fontWeight: 700,
+            letterSpacing: '0.04em', fontFamily: 'system-ui, sans-serif',
           }}>Drag</span>
         </div>
-
-        {/* Right dot */}
-        <div style={{
-          width: 6, height: 6, borderRadius: '50%',
-          background: '#111',
-          flexShrink: 0,
-        }} />
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#111', flexShrink: 0 }} />
       </div>
     </section>
   );
