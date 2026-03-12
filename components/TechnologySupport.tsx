@@ -1,26 +1,20 @@
 "use client";
 
-// Place these images in your /public/tech-logos/ folder:
-// iOS_Logo.png, Layer_1.png, Isolation_Mode_3.png, Group_518.png,
-// Frame_522.png, Isolation_Mode_2.png, Isolation_Mode_1.png,
-// Isolation_Mode.png, Group_522_1.png, Group_522.png
-
 const logos = [
   { src: "./kotlin.png",        alt: "kotlin"        },
-  { src: "./android.png",          alt: "Android"    },
-  { src: "./react.png", alt: "React"      },
-  { src: "./next.png",        alt: "next"     },
-  { src: "./js.png",        alt: "js"       },
-  { src: "./java.png", alt: "Java"},
-  { src: "./swift.png", alt: "Swift"      },
-  { src: "./typescript.png",   alt: "typescript" },
-  { src: "./iOS_Logo.png",      alt: "IOS" },
-  { src: "./nodejs.png",        alt: "Node" },
-  { src: "./express.png",        alt: "express" },
+  { src: "./android.png",       alt: "Android"       },
+  { src: "./react.png",         alt: "React"         },
+  { src: "./next.png",          alt: "next"          },
+  { src: "./js.png",            alt: "js"            },
+  { src: "./java.png",          alt: "Java"          },
+  { src: "./swift.png",         alt: "Swift"         },
+  { src: "./typescript.png",    alt: "typescript"    },
+  { src: "./iOS_Logo.png",      alt: "IOS"           },
+  { src: "./nodejs.png",        alt: "Node"          },
+  { src: "./express.png",       alt: "express"       },
 ];
 
 export default function TechnologySupport() {
-  // Duplicate for seamless infinite loop
   const items = [...logos, ...logos];
 
   return (
@@ -33,7 +27,7 @@ export default function TechnologySupport() {
         .marquee-track {
           display: flex;
           width: max-content;
-          animation: marquee 28s linear infinite;
+          animation: marquee 40s linear infinite;
         }
         .marquee-track:hover {
           animation-play-state: paused;
@@ -55,7 +49,7 @@ export default function TechnologySupport() {
           {items.map((logo, idx) => (
             <div
               key={idx}
-              className="flex items-center justify-center mb-8 mx-10 md:mx-16  grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-300"
+              className="flex items-center justify-center mx-6 md:mx-10 grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-300"
               style={{ height: 40 }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}

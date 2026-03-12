@@ -95,6 +95,9 @@ const COUNTRIES = [
 
 type Country = typeof COUNTRIES[0];
 
+// ─── Netlify Function Endpoint ────────────────────────────────────────────────
+const CONTACT_ENDPOINT = 'https://upclude-main.netlify.app/.netlify/functions/contact';
+
 // ─── Validation rules ─────────────────────────────────────────────────────────
 const validators = {
   name: (v: string) => {
@@ -297,7 +300,6 @@ export const ContactForm: React.FC = () => {
 
   const isLoading = status === 'loading';
 
-  // ─── Compute all errors from current state ───────────────────────────────
   const computeErrors = (): ErrorFields => ({
     name:    validators.name(name),
     email:   validators.email(email),
@@ -307,23 +309,18 @@ export const ContactForm: React.FC = () => {
     message: validators.message(message),
   });
 
-  // ─── Live validation on blur / change ────────────────────────────────────
   const touch = (field: string) => {
     setTouched(t => ({ ...t, [field]: true }));
   };
 
   const handleChange = (field: string, value: string) => {
-    // Update value
     switch (field) {
       case 'name':    setName(value);    break;
       case 'email':   setEmail(value);   break;
       case 'phone':   setPhone(value.replace(/[^\d\s\-\(\)\+]/, '')); break;
       case 'message': setMessage(value); break;
     }
-    // Live error update if already touched
     if (touched[field]) {
-      const errs = computeErrors();
-      // recompute with new value inline
       let fieldErr = '';
       if (field === 'name')    fieldErr = validators.name(value);
       if (field === 'email')   fieldErr = validators.email(value);
@@ -339,7 +336,6 @@ export const ContactForm: React.FC = () => {
     setErrors(e => ({ ...e, [field]: errs[field] }));
   };
 
-  // When country changes, re-validate phone if touched
   useEffect(() => {
     if (touched.phone) {
       setErrors(e => ({ ...e, phone: validators.phone(phone, country) }));
@@ -350,7 +346,6 @@ export const ContactForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Touch all fields
     const allTouched: TouchedFields = { name: true, email: true, phone: true, service: true, budget: true, message: true };
     setTouched(allTouched);
 
@@ -364,14 +359,17 @@ export const ContactForm: React.FC = () => {
     setErrorMsg('');
 
     try {
-      const res = await fetch('/api/contact', {
+      const res = await fetch(CONTACT_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name, email,
+          name,
+          email,
           phone: `${country.code}${phone.replace(/\D/g, '')}`,
           countryCode: country.code,
-          service, budget, message,
+          service,
+          budget,
+          message,
         }),
       });
 
@@ -389,7 +387,6 @@ export const ContactForm: React.FC = () => {
     }
   };
 
-  // ─── Helpers for input styling ────────────────────────────────────────────
   const borderStyle = (field: string) => {
     if (!touched[field]) return { borderBottom: '1px solid rgba(255,255,255,0.3)' };
     if (errors[field])   return { borderBottom: '1px solid rgba(248,113,113,0.7)' };
@@ -492,13 +489,12 @@ export const ContactForm: React.FC = () => {
                 disabled={isLoading} value={phone}
                 onChange={e => handleChange('phone', e.target.value)}
                 onBlur={() => handleBlur('phone')}
-                maxLength={country.maxLen + 3} // allow spaces/dashes
+                maxLength={country.maxLen + 3}
               />
               {inputIcon('phone')}
             </div>
           </div>
           <FieldError msg={touched.phone ? errors.phone || '' : ''} />
-          {/* Hint */}
           {!errors.phone && (
             <p style={{ color:'rgba(255,255,255,0.3)', fontSize:11, marginTop:4, fontFamily:'system-ui,sans-serif' }}>
               {country.name}: {country.minLen === country.maxLen ? `${country.minLen}` : `${country.minLen}–${country.maxLen}`} digits required
